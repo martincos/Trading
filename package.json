@@ -1,0 +1,10 @@
+{
+  "name": "brujula-de-cartera",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Panel local para analizar una cartera de bróker a partir de su exportación CSV",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build-single.js"
+  }
+}

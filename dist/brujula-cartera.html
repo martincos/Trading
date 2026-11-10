@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brújula de Cartera</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: cabecera fija con pestañas; cada sección abre con sus cifras clave y debajo el detalle en tablas. */
+:root {
+  --bg: #f5f7f5; --surface: #ffffff; --ink: #14201c; --ink-2: #4a5852; --ink-3: #6f7d77; --line: #dde3df;
+  --accent: #0d5c4a; --accent-ink: #ffffff; --accent-soft: #e2efe9;
+  --pos: #0a6b2d; --neg: #b3261e; --warn-bg: #fdf3d8; --warn-ink: #6b4a00; --high-bg: #fde7e4; --high-ink: #8c1d16;
+  --series-1: #2a78d6; --series-2: #eb6834; --track: #edf0ee;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1513; --surface: #18201d; --ink: #e9efec; --ink-2: #b6c2bd; --ink-3: #8a9791; --line: #2b3632;
+    --accent: #63caa8; --accent-ink: #0b1512; --accent-soft: #1b2e27;
+    --pos: #5fd08a; --neg: #ff8f85; --warn-bg: #3a2f10; --warn-ink: #f4d58a; --high-bg: #43201d; --high-ink: #ffb4ac;
+    --series-1: #3987e5; --series-2: #d95926; --track: #222c28; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1513; --surface: #18201d; --ink: #e9efec; --ink-2: #b6c2bd; --ink-3: #8a9791; --line: #2b3632;
+  --accent: #63caa8; --accent-ink: #0b1512; --accent-soft: #1b2e27;
+  --pos: #5fd08a; --neg: #ff8f85; --warn-bg: #3a2f10; --warn-ink: #f4d58a; --high-bg: #43201d; --high-ink: #ffb4ac;
+  --series-1: #3987e5; --series-2: #d95926; --track: #222c28; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; }
+h1 { font-size: 1.25rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 0.95rem; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+.top-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding-block: 12px 0; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; padding-bottom: 12px; }
+.brand-mark { width: 30px; height: 30px; color: var(--accent); flex: none; }
+.brand-sub { color: var(--ink-3); font-size: 0.8rem; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; max-width: 100%; }
+.tabs a { padding: 8px 12px 12px; color: var(--ink-2); text-decoration: none; font-weight: 500; white-space: nowrap; border-bottom: 2px solid transparent; }
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current="page"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+main { display: grid; gap: 28px; padding-block: 24px; min-width: 0; }
+section { display: grid; gap: 12px; min-width: 0; }
+.lead { color: var(--ink-2); max-width: 68ch; }
+.muted { color: var(--ink-3); }
+.small { font-size: 0.85rem; }
+.num { font-variant-numeric: tabular-nums; }
+.pos { color: var(--pos); } .neg { color: var(--neg); }
+
+.banner { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-top: 16px; padding: 10px 14px; border-radius: var(--radius); background: var(--warn-bg); color: var(--warn-ink); }
+.banner + .banner { margin-top: 8px; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.kpi { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; align-content: start; }
+.kpi-label { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.kpi-value { font-family: var(--font-display); font-size: 1.45rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; overflow-wrap: anywhere; }
+.kpi-note { font-size: 0.8rem; color: var(--ink-2); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }
+
+.actions { list-style: none; margin: 0; padding: 0; display: grid; }
+.actions li { display: grid; gap: 4px; padding: 14px 0; border-top: 1px solid var(--line); }
+.actions li:first-child { border-top: 0; padding-top: 0; }
+.actions li:last-child { padding-bottom: 0; }
+.action-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.action-head strong { font-weight: 600; }
+.pill { font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.pill.alta { background: var(--high-bg); color: var(--high-ink); }
+.pill.media { background: var(--warn-bg); color: var(--warn-ink); }
+.pill.info { background: var(--accent-soft); color: var(--accent); }
+
+.table-scroll { overflow-x: auto; min-width: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th { font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+th:first-child, td:first-child { text-align: left; padding-left: 0; white-space: normal; min-width: 150px; }
+th:last-child, td:last-child { padding-right: 0; }
+tbody tr:last-child td { border-bottom: 0; }
+tfoot td { font-weight: 600; border-top: 1px solid var(--line); border-bottom: 0; }
+.sub { display: block; color: var(--ink-3); font-size: 0.78rem; }
+
+input, select, textarea, button { font: inherit; color: inherit; }
+input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; max-width: 100%; }
+textarea { width: 100%; min-height: 96px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8rem; }
+td input { width: 88px; text-align: right; }
+a.btn { text-decoration: none; display: inline-block; }
+.btn { background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 6px; padding: 7px 14px; font-weight: 600; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); border-color: var(--line); }
+.btn.danger { background: transparent; color: var(--neg); border-color: var(--line); }
+.btn.link { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 500; text-decoration: underline; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.field { display: grid; gap: 4px; font-size: 0.8rem; color: var(--ink-2); min-width: 0; }
+.field input, .field select { width: 150px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+.bars { display: grid; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr) 3.6rem; gap: 10px; align-items: center; font-size: 0.85rem; }
+.bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { position: relative; height: 14px; background: var(--track); border-radius: 4px; }
+.bar-fill { position: absolute; inset: 0 auto 0 0; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; }
+.bar-target { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); box-shadow: 0 0 0 1.5px var(--surface); }
+.bar-value { text-align: right; font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.8rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--series-1); }
+.swatch.s2 { background: var(--series-2); }
+.swatch.tick { width: 2px; height: 14px; border-radius: 0; background: var(--ink); }
+@media (max-width: 520px) { .bar-row { grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) 3.4rem; } }
+
+.chart { position: relative; min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { fill: var(--ink-3); font: 11px var(--font-body); font-variant-numeric: tabular-nums; }
+.tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--bg); padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; line-height: 1.4; max-width: 260px; font-variant-numeric: tabular-nums; }
+
+.foot { border-top: 1px solid var(--line); padding-block: 16px 32px; color: var(--ink-3); font-size: 0.8rem; }
+.foot p { max-width: 80ch; }
+@media (prefers-reduced-motion: no-preference) { .bar-fill { transition: width 0.3s ease; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 5l4 11-4 11-4-11z" fill="currentColor"/><circle cx="16" cy="16" r="2" fill="var(--surface)"/></svg>
+      <div>
+        <h1>Brújula de Cartera</h1>
+        <p class="brand-sub">Análisis de tu cuenta de bróker. Los datos se quedan en este navegador.</p>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Secciones">
+      <a href="#resumen">Resumen</a>
+      <a href="#posiciones">Posiciones</a>
+      <a href="#rebalanceo">Rebalanceo</a>
+      <a href="#fiscalidad">Fiscalidad</a>
+      <a href="#proyeccion">Proyección</a>
+      <a href="#datos">Datos</a>
+    </nav>
+  </div>
+</header>
+<div class="wrap">
+  <div id="banner"></div>
+  <main id="view"></main>
+  <footer class="foot">
+    <p>Herramienta independiente, sin relación con Trade Republic ni con ningún bróker. No ejecuta órdenes ni se conecta a tu cuenta. Los cálculos son orientativos y no constituyen asesoramiento financiero ni fiscal: contrasta las cifras con tu informe fiscal antes de declarar.</p>
+  </footer>
+</div>
+<div id="tip" class="tip" hidden></div>
+<script>
+/* Lectura de CSV y normalización de movimientos. Sin dependencias; funciona en navegador y en Node. */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.TC = Object.assign(root.TC || {}, api);
+})(typeof self !== 'undefined' ? self : globalThis, function () {
+  'use strict';
+
+  function parseNumber(v) {
+    if (v == null) return null;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    let s = String(v).trim().replace(/[€$£\s ']|EUR|USD/gi, '');
+    if (!s) return null;
+    let neg = false;
+    if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+    const hasComma = s.includes(','), hasDot = s.includes('.');
+    if (hasComma && hasDot) {
+      // El último separador es el decimal: "1.234,56" o "1,234.56".
+      if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(/,/g, '');
+    } else if (hasComma) {
+      if (/^[-+]?\d{1,3}(,\d{3}){2,}$/.test(s)) s = s.replace(/,/g, '');
+      else s = s.replace(',', '.');
+    } else if (hasDot && (s.match(/\./g) || []).length > 1) {
+      s = s.replace(/\./g, '');
+    }
+    const n = Number(s);
+    if (!Number.isFinite(n)) return null;
+    return neg ? -n : n;
+  }
+
+  const pad = (n) => String(n).padStart(2, '0');
+
+  /** Devuelve la fecha como "aaaa-mm-dd" o null. Las fechas con barras o puntos se leen como día/mes/año. */
+  function parseDate(v) {
+    if (v == null) return null;
+    const s = String(v).trim();
+    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    let y, mo, d;
+    if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+    else {
+      m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+      if (!m) return null;
+      d = +m[1]; mo = +m[2]; y = +m[3];
+      if (y < 100) y += 2000;
+    }
+    if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 1990 || y > 2100) return null;
+    return `${y}-${pad(mo)}-${pad(d)}`;
+  }
+
+  function detectDelimiter(line) {
+    const counts = { ';': 0, ',': 0, '\t': 0 };
+    let quoted = false;
+    for (const ch of line) {
+      if (ch === '"') quoted = !quoted;
+      else if (!quoted && ch in counts) counts[ch]++;
+    }
+    return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+  }
+
+  function parseCSV(text) {
+    text = String(text || '').replace(/^﻿/, '');
+    const firstLine = text.split(/\r?\n/).find((l) => l.trim()) || '';
+    const delimiter = detectDelimiter(firstLine);
+    const rows = [];
+    let row = [], cell = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { cell += '"'; i++; } else quoted = false;
+        } else cell += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === delimiter) { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); cell = '';
+        if (row.some((c) => c.trim() !== '')) rows.push(row);
+        row = [];
+      } else cell += ch;
+    }
+    row.push(cell);
+    if (row.some((c) => c.trim() !== '')) rows.push(row);
+    const headers = (rows.shift() || []).map((h) => h.trim());
+    return { headers, rows, delimiter };
+  }
+
+  const normHeader = (h) => String(h).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+
+  // Nombres de columna conocidos (inglés, alemán y español), por orden de preferencia.
+  const FIELD_ALIASES = {
+    date: ['datetime', 'date', 'fecha', 'fechahora', 'datum', 'zeitpunkt', 'timestamp', 'buchungstag'],
+    type: ['type', 'tipo', 'typ', 'transactiontype', 'tipodemovimiento'],
+    category: ['category', 'categoria', 'kategorie'],
+    isin: ['isin', 'symbol', 'simbolo'],
+    name: ['name', 'nombre', 'instrument', 'instrumento', 'titel', 'wertpapier', 'note', 'nota', 'notiz'],
+    shares: ['shares', 'acciones', 'stuck', 'stueck', 'quantity', 'cantidad', 'anzahl', 'titulos', 'units'],
+    price: ['price', 'precio', 'kurs', 'preis', 'pricepershare', 'preciounitario'],
+    amount: ['amount', 'importe', 'valor', 'wert', 'value', 'betrag', 'total'],
+    fee: ['fee', 'fees', 'comisiones', 'comision', 'gebuhren', 'gebuhr'],
+    tax: ['tax', 'taxes', 'impuestos', 'impuesto', 'steuern', 'steuer'],
+    id: ['transactionid', 'id', 'referencia'],
+    assetClass: ['assetclass', 'tipodeactivo', 'claseactivo'],
+    description: ['description', 'descripcion', 'beschreibung'],
+  };
+  const FIELD_LABELS = {
+    date: 'Fecha', type: 'Tipo de movimiento', category: 'Categoría', isin: 'ISIN', name: 'Nombre del valor',
+    shares: 'Títulos', price: 'Precio por título', amount: 'Importe', fee: 'Comisión', tax: 'Impuestos',
+    id: 'Identificador', assetClass: 'Clase de activo', description: 'Descripción',
+  };
+
+  /** Propone qué columna del CSV corresponde a cada campo. -1 = sin asignar. */
+  function autoMap(headers) {
+    const normalized = headers.map(normHeader);
+    const used = new Set();
+    const mapping = {};
+    for (const field of Object.keys(FIELD_ALIASES)) {
+      mapping[field] = -1;
+      for (const alias of FIELD_ALIASES[field]) {
+        const idx = normalized.findIndex((h, i) => h === alias && !used.has(i));
+        if (idx >= 0) { mapping[field] = idx; used.add(idx); break; }
+      }
+    }
+    return mapping;
+  }
+
+  const TYPE_RULES = [
+    ['sell', /sell|verkauf|venta|vender/],
+    ['buy', /buy|kauf|compra|savings|sparplan|plan de inversi|round ?up|saveback|redondeo/],
+    ['dividend', /dividend|dividendo|distribution|aussch|cupon|coupon/],
+    ['interest', /interest|zins|interes/],
+    ['fee', /fee|gebuhr|comision/],
+    ['tax', /tax|steuer|impuesto|retencion/],
+    ['withdrawal', /withdraw|outbound|outgoing|auszahlung|retirada|card|tarjeta|payout|removal/],
+    ['deposit', /deposit|inbound|incoming|einzahlung|ingreso|top ?up|transfer/],
+  ];
+
+  function classify(typeText, shares, amount) {
+    const t = String(typeText || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/_/g, ' ');
+    for (const [type, re] of TYPE_RULES) if (re.test(t)) return type;
+    if (shares && amount != null) return amount < 0 ? 'buy' : 'sell';
+    if (amount != null && amount !== 0) return amount < 0 ? 'withdrawal' : 'deposit';
+    return null;
+  }
+
+  const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{9}\d$/;
+
+  /**
+   * Convierte las filas del CSV en movimientos normalizados.
+   * Compras y ventas guardan títulos y precio; el resto guarda el importe.
+   */
+  function normalizeRows(headers, rows, mapping) {
+    const get = (row, field) => (mapping[field] >= 0 ? (row[mapping[field]] || '').trim() : '');
+    const transactions = [], skipped = [], seen = {};
+    rows.forEach((row, i) => {
+      const line = i + 2;
+      const date = parseDate(get(row, 'date'));
+      if (!date) { skipped.push({ line, reason: 'Fecha no reconocida' }); return; }
+      const sharesRaw = parseNumber(get(row, 'shares'));
+      const shares = sharesRaw ? Math.abs(sharesRaw) : 0;
+      const amount = parseNumber(get(row, 'amount'));
+      const fee = Math.abs(parseNumber(get(row, 'fee')) || 0);
+      const tax = Math.abs(parseNumber(get(row, 'tax')) || 0);
+      let price = parseNumber(get(row, 'price'));
+      price = price ? Math.abs(price) : null;
+      const typeText = [get(row, 'type'), get(row, 'category')].join(' ');
+      let type = classify(get(row, 'type'), shares, amount) || classify(typeText + ' ' + get(row, 'description'), shares, amount);
+      if (!type) { skipped.push({ line, reason: 'Tipo de movimiento no reconocido' }); return; }
+      let isin = get(row, 'isin').toUpperCase();
+      const name = get(row, 'name') || get(row, 'description') || isin;
+      if (!ISIN_RE.test(isin)) isin = '';
+      const tx = { date, type, isin, name, assetClass: get(row, 'assetClass'), shares: 0, price: 0, amount: 0, fee, tax };
+      if (type === 'buy' || type === 'sell') {
+        if (!shares) { skipped.push({ line, reason: 'Compra o venta sin número de títulos' }); return; }
+        if (!price && amount) price = Math.abs(amount) / shares;
+        if (!price) { skipped.push({ line, reason: 'Compra o venta sin precio ni importe' }); return; }
+        if (!isin && !name) { skipped.push({ line, reason: 'Compra o venta sin valor identificado' }); return; }
+        tx.shares = shares; tx.price = price;
+      } else {
+        if (amount == null) { skipped.push({ line, reason: 'Movimiento sin importe' }); return; }
+        tx.amount = type === 'tax' ? amount : Math.abs(amount);
+      }
+      const given = get(row, 'id');
+      const base = given || [date, type, isin || name, tx.shares, tx.price || tx.amount].join('|');
+      seen[base] = (seen[base] || 0) + 1;
+      tx.id = given || `${base}#${seen[base]}`;
+      transactions.push(tx);
+    });
+    return { transactions, skipped };
+  }
+
+  /** Añade movimientos nuevos a los existentes sin duplicar los que ya estaban. */
+  function mergeTransactions(existing, incoming) {
+    const ids = new Set(existing.map((t) => t.id));
+    const added = incoming.filter((t) => !ids.has(t.id));
+    return { merged: existing.concat(added), added: added.length, duplicates: incoming.length - added.length };
+  }
+
+  return { parseNumber, parseDate, parseCSV, autoMap, normalizeRows, mergeTransactions, classify, FIELD_ALIASES, FIELD_LABELS };
+});
+</script>
+<script>
+/* Motor de cartera: posiciones por FIFO, plusvalías realizadas, efectivo y rentabilidad anual. */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.TC = Object.assign(root.TC || {}, api);
+})(typeof self !== 'undefined' ? self : globalThis, function () {
+  'use strict';
+
+  const EPS = 1e-9;
+  const DAY = 86400000;
+  const keyOf = (t) => t.isin || t.name;
+  const toTime = (iso) => Date.parse(iso + 'T00:00:00Z');
+  const TYPE_ORDER = { deposit: 0, interest: 1, dividend: 1, buy: 2, sell: 3, fee: 4, tax: 4, withdrawal: 5 };
+
+  function addMonths(iso, n) {
+    const d = new Date(iso + 'T00:00:00Z');
+    const day = d.getUTCDate();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() + n);
+    const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    d.setUTCDate(Math.min(day, last));
+    return d.toISOString().slice(0, 10);
+  }
+
+  /** Tasa interna de retorno anualizada de una serie de flujos {date, amount}. null si no se puede calcular. */
+  function xirr(flows) {
+    if (flows.length < 2) return null;
+    const t0 = Math.min(...flows.map((f) => toTime(f.date)));
+    const pts = flows.map((f) => [(toTime(f.date) - t0) / DAY / 365, f.amount]);
+    if (!pts.some((p) => p[1] > 0) || !pts.some((p) => p[1] < 0)) return null;
+    if (Math.max(...pts.map((p) => p[0])) < 1 / 365) return null;
+    const npv = (r) => pts.reduce((s, [t, a]) => s + a / Math.pow(1 + r, t), 0);
+    let lo = -0.9999, hi = 100;
+    let flo = npv(lo), fhi = npv(hi);
+    if (!Number.isFinite(flo) || !Number.isFinite(fhi) || flo * fhi > 0) return null;
+    for (let i = 0; i < 200; i++) {
+      const mid = (lo + hi) / 2, fm = npv(mid);
+      if (flo * fm <= 0) { hi = mid; fhi = fm; } else { lo = mid; flo = fm; }
+      if (hi - lo < 1e-9) break;
+    }
+    return (lo + hi) / 2;
+  }
+
+  /**
+   * transactions: movimientos normalizados. prices: { clave: { price, date } } con precios introducidos a mano.
+   * Si falta el precio de un valor se usa el de su último movimiento.
+   */
+  function computePortfolio(transactions, prices, opts) {
+    prices = prices || {};
+    const today = (opts && opts.today) || new Date().toISOString().slice(0, 10);
+    const txs = transactions.slice().sort((a, b) =>
+      a.date < b.date ? -1 : a.date > b.date ? 1 : (TYPE_ORDER[a.type] ?? 9) - (TYPE_ORDER[b.type] ?? 9));
+
+    const book = new Map();
+    const realized = [], income = [], warnings = [], flows = [];
+    const totals = { fees: 0, deposits: 0, withdrawals: 0, dividends: 0, interest: 0, realized: 0, buyVolume: 0, taxesPaid: 0 };
+    let cash = 0;
+
+    const entry = (t) => {
+      const key = keyOf(t);
+      if (!book.has(key)) book.set(key, { key, isin: t.isin, name: t.name || t.isin, assetClass: t.assetClass || '', lots: [], lastPrice: 0, lastPriceDate: '', lastBuyDate: '' });
+      const e = book.get(key);
+      if (t.name && (!e.name || e.name === e.isin)) e.name = t.name;
+      return e;
+    };
+
+    for (const t of txs) {
+      if (t.type === 'buy') {
+        const e = entry(t);
+        const cost = t.shares * t.price + t.fee;
+        e.lots.push({ date: t.date, shares: t.shares, cost });
+        e.lastPrice = t.price; e.lastPriceDate = t.date; e.lastBuyDate = t.date;
+        cash -= cost; totals.fees += t.fee; totals.buyVolume += t.shares * t.price;
+        flows.push({ date: t.date, amount: -cost });
+      } else if (t.type === 'sell') {
+        const e = entry(t);
+        const proceeds = t.shares * t.price - t.fee;
+        let left = t.shares, cost = 0;
+        while (left > EPS && e.lots.length) {
+          const lot = e.lots[0];
+          const take = Math.min(lot.shares, left);
+          const part = lot.cost * (take / lot.shares);
+          cost += part; lot.shares -= take; lot.cost -= part; left -= take;
+          if (lot.shares <= EPS) e.lots.shift();
+        }
+        const incomplete = left > 1e-6;
+        if (incomplete) warnings.push(`Venta de ${e.name} el ${t.date}: se venden más títulos de los comprados. Faltan movimientos anteriores, así que su plusvalía no es fiable.`);
+        const sharesAfter = e.lots.reduce((s, l) => s + l.shares, 0);
+        const gain = proceeds - cost;
+        realized.push({ date: t.date, key: e.key, name: e.name, shares: t.shares, proceeds, cost, gain, sharesAfter, incomplete });
+        e.lastPrice = t.price; e.lastPriceDate = t.date;
+        cash += proceeds - t.tax; totals.fees += t.fee; totals.taxesPaid += t.tax; totals.realized += gain;
+        flows.push({ date: t.date, amount: proceeds });
+      } else if (t.type === 'dividend' || t.type === 'interest') {
+        const key = t.type === 'dividend' ? keyOf(t) : '';
+        income.push({ date: t.date, type: t.type, key, name: t.name, net: t.amount, tax: t.tax, gross: t.amount + t.tax });
+        cash += t.amount; totals.taxesPaid += t.tax;
+        if (t.type === 'dividend') { totals.dividends += t.amount; flows.push({ date: t.date, amount: t.amount }); }
+        else totals.interest += t.amount;
+      } else if (t.type === 'deposit') { cash += t.amount; totals.deposits += t.amount; }
+      else if (t.type === 'withdrawal') { cash -= t.amount; totals.withdrawals += t.amount; }
+      else if (t.type === 'fee') { cash -= t.amount; totals.fees += t.amount; }
+      else if (t.type === 'tax') { cash += t.amount; totals.taxesPaid -= t.amount; }
+    }
+
+    const positions = [];
+    for (const e of book.values()) {
+      const shares = e.lots.reduce((s, l) => s + l.shares, 0);
+      if (shares <= 1e-6) continue;
+      const cost = e.lots.reduce((s, l) => s + l.cost, 0);
+      const manual = prices[e.key] && prices[e.key].price > 0 ? prices[e.key] : null;
+      const price = manual ? manual.price : e.lastPrice;
+      const value = shares * price;
+      positions.push({
+        key: e.key, isin: e.isin, name: e.name, assetClass: e.assetClass, shares, cost, avgCost: cost / shares,
+        price, priceSource: manual ? 'manual' : 'last', priceDate: manual ? manual.date : e.lastPriceDate,
+        value, pnl: value - cost, pnlPct: cost > 0 ? (value - cost) / cost : 0, lastBuyDate: e.lastBuyDate,
+        lots: e.lots.map((l) => ({ ...l })), weight: 0,
+      });
+    }
+    const invested = positions.reduce((s, p) => s + p.value, 0);
+    positions.forEach((p) => { p.weight = invested > 0 ? p.value / invested : 0; });
+    positions.sort((a, b) => b.value - a.value);
+    const cost = positions.reduce((s, p) => s + p.cost, 0);
+    if (invested > 0) flows.push({ date: today, amount: invested });
+
+    return {
+      today, positions, realized, income, warnings, cash,
+      invested, cost, unrealized: invested - cost, unrealizedPct: cost > 0 ? (invested - cost) / cost : 0,
+      totals, xirr: xirr(flows),
+    };
+  }
+
+  return { computePortfolio, xirr, addMonths, keyOf };
+});
+</script>
+<script>
+/* Fiscalidad (España), rebalanceo, proyección y recomendaciones. */
+(function (root, factory) {
+  const api = factory((typeof module === 'object' && module.exports) ? require('./portfolio.js') : root.TC);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.TC = Object.assign(root.TC || {}, api);
+})(typeof self !== 'undefined' ? self : globalThis, function (P) {
+  'use strict';
+  const { addMonths, keyOf } = P;
+
+  // Base del ahorro del IRPF, escala estatal + autonómica vigente desde 2025.
+  const SAVINGS_BRACKETS = [[6000, 0.19], [50000, 0.21], [200000, 0.23], [300000, 0.27], [Infinity, 0.30]];
+
+  function taxOnSavings(base) {
+    let tax = 0, prev = 0;
+    for (const [limit, rate] of SAVINGS_BRACKETS) {
+      if (base <= prev) break;
+      tax += (Math.min(base, limit) - prev) * rate;
+      prev = limit;
+    }
+    return Math.max(0, tax);
+  }
+
+  /** Base del ahorro a partir de ganancias patrimoniales netas y rendimientos (dividendos e intereses brutos). */
+  function savingsBase(netGains, incomeGross) {
+    if (netGains >= 0) return { base: netGains + incomeGross, carry: 0 };
+    // Las pérdidas compensan como máximo el 25 % de los rendimientos; el resto queda pendiente 4 años.
+    const offset = Math.min(-netGains, 0.25 * Math.max(0, incomeGross));
+    return { base: incomeGross - offset, carry: -netGains - offset };
+  }
+
+  function taxSummary(portfolio, year) {
+    const inYear = (r) => r.date.slice(0, 4) === String(year);
+    const ops = portfolio.realized.filter(inYear);
+    const gains = ops.filter((r) => r.gain > 0).reduce((s, r) => s + r.gain, 0);
+    const losses = ops.filter((r) => r.gain < 0).reduce((s, r) => s + r.gain, 0);
+    const inc = portfolio.income.filter(inYear);
+    const incomeGross = inc.reduce((s, r) => s + r.gross, 0);
+    const withheld = inc.reduce((s, r) => s + r.tax, 0);
+    const { base, carry } = savingsBase(gains + losses, incomeGross);
+    const tax = taxOnSavings(base);
+    return { year, ops, gains, losses, net: gains + losses, incomeGross, withheld, base, tax, due: tax - withheld, carry };
+  }
+
+  /**
+   * Regla de los dos meses: una pérdida no se puede declarar si se compran valores homogéneos
+   * en los dos meses anteriores o posteriores a la venta y se siguen teniendo.
+   */
+  function washSales(transactions, portfolio) {
+    const buys = transactions.filter((t) => t.type === 'buy');
+    const out = [];
+    for (const r of portfolio.realized) {
+      if (r.gain >= 0) continue;
+      const from = addMonths(r.date, -2), to = addMonths(r.date, 2);
+      const after = buys.filter((b) => keyOf(b) === r.key && b.date > r.date && b.date <= to);
+      const before = r.sharesAfter > 1e-6 ? buys.filter((b) => keyOf(b) === r.key && b.date >= from && b.date <= r.date) : [];
+      if (after.length || before.length) out.push({ ...r, rebuys: before.concat(after).map((b) => b.date) });
+    }
+    return out;
+  }
+
+  /** Posiciones en pérdidas que podrían venderse para reducir el impuesto de este año. */
+  function harvestCandidates(portfolio, year) {
+    const s = taxSummary(portfolio, year);
+    const limit = addMonths(portfolio.today, -2);
+    return portfolio.positions.filter((p) => p.pnl < -1).map((p) => {
+      const after = savingsBase(s.net + p.pnl, s.incomeGross);
+      return {
+        key: p.key, name: p.name, loss: p.pnl, value: p.value,
+        saving: Math.max(0, s.tax - taxOnSavings(after.base)),
+        recentBuy: p.lastBuyDate >= limit ? p.lastBuyDate : '',
+      };
+    }).sort((a, b) => b.saving - a.saving || a.loss - b.loss);
+  }
+
+  /**
+   * Reparte una aportación solo con compras para acercar la cartera a los pesos objetivo.
+   * targets: { clave: porcentaje }. Los valores sin objetivo quedan fuera del cálculo.
+   */
+  function rebalancePlan(positions, targets, contribution) {
+    const inPlan = positions.filter((p) => targets[p.key] > 0);
+    const sumT = inPlan.reduce((s, p) => s + targets[p.key], 0);
+    const value = inPlan.reduce((s, p) => s + p.value, 0);
+    const total = value + Math.max(0, contribution);
+    const rows = inPlan.map((p) => {
+      const target = targets[p.key] / sumT;
+      const weight = value > 0 ? p.value / value : 0;
+      return { key: p.key, name: p.name, price: p.price, value: p.value, weight, target, drift: weight - target, gap: Math.max(0, target * total - p.value), buy: 0 };
+    });
+    const gaps = rows.reduce((s, r) => s + r.gap, 0);
+    rows.forEach((r) => {
+      r.buy = gaps > 0 ? r.gap * Math.min(1, contribution / gaps) : 0;
+      r.sharesApprox = r.price > 0 ? r.buy / r.price : 0;
+      r.weightAfter = total > 0 ? (r.value + r.buy) / total : 0;
+    });
+    return { rows, targetSum: sumT, excluded: positions.filter((p) => !(targets[p.key] > 0)).map((p) => p.name) };
+  }
+
+  /** Proyección anual con aportaciones mensuales. Tipos en tanto por uno. */
+  function projection({ initial, monthly, years, annualReturn, annualCost, inflation }) {
+    const rate = (r) => Math.pow(1 + r, 1 / 12) - 1;
+    const rNet = rate(annualReturn - annualCost), rGross = rate(annualReturn);
+    let value = initial, noCost = initial, contributed = initial;
+    const out = [{ year: 0, contributed, value, noCost, real: value }];
+    for (let m = 1; m <= years * 12; m++) {
+      value = value * (1 + rNet) + monthly;
+      noCost = noCost * (1 + rGross) + monthly;
+      contributed += monthly;
+      if (m % 12 === 0) out.push({ year: m / 12, contributed, value, noCost, real: value / Math.pow(1 + inflation, m / 12) });
+    }
+    return out;
+  }
+
+  const eur = (n) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' }).format(n);
+  const pct = (n) => new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 }).format(n);
+
+  /** Lista priorizada de acciones concretas sobre la cartera. */
+  function insights(portfolio, transactions, targets, cash) {
+    const list = [];
+    const year = Number(portfolio.today.slice(0, 4));
+    const total = portfolio.invested + Math.max(0, cash);
+    const add = (severity, view, title, detail, impact) => list.push({ severity, view, title, detail, impact: impact || 0 });
+    if (!portfolio.positions.length) return list;
+
+    const stale = portfolio.positions.filter((p) => p.priceSource === 'last' || p.priceDate < addMonths(portfolio.today, -1));
+    if (stale.length) add('media', 'posiciones', `Actualiza el precio de ${stale.length} ${stale.length === 1 ? 'valor' : 'valores'}`,
+      'Se están valorando con el precio de su último movimiento o con un precio de hace más de un mes. Todo lo demás depende de este dato.');
+
+    const harvest = harvestCandidates(portfolio, year).filter((h) => h.saving > 5);
+    if (harvest.length) {
+      const best = harvest[0];
+      add('alta', 'fiscalidad', `Puedes ahorrar hasta ${eur(best.saving)} de IRPF vendiendo ${best.name}`,
+        `Tiene ${eur(best.loss)} de pérdida latente que compensaría ganancias ya realizadas en ${year}.` +
+        (best.recentBuy ? ` Ojo: compraste el ${best.recentBuy}; por la regla de los dos meses parte de la pérdida no sería deducible todavía.` : ' No recompres el mismo valor en los dos meses siguientes.'),
+        best.saving);
+    }
+
+    const wash = washSales(transactions, portfolio).filter((w) => w.date.slice(0, 4) === String(year));
+    if (wash.length) add('alta', 'fiscalidad', `${wash.length} ${wash.length === 1 ? 'venta con pérdidas puede no ser deducible' : 'ventas con pérdidas pueden no ser deducibles'}`,
+      `Hay compras del mismo valor a menos de dos meses de la venta (${wash.map((w) => w.name).join(', ')}). Revisa los planes de inversión automáticos: también cuentan.`,
+      -wash.reduce((s, w) => s + w.gain, 0) * 0.19);
+
+    for (const p of portfolio.positions) {
+      if (p.weight > 0.25 && portfolio.positions.length > 1 && !/etf|fund|fond|ucits|msci|index|ftse|s&p|stoxx/i.test(p.assetClass + ' ' + p.name)) {
+        add('media', 'rebalanceo', `${p.name} pesa el ${pct(p.weight)} de lo invertido`,
+          'Una caída del 30 % en este valor restaría ' + eur(p.value * 0.3) + ' a la cartera. Dirige las próximas aportaciones al resto antes que vender.');
+      }
+    }
+
+    const drift = Object.keys(targets || {}).length ? rebalancePlan(portfolio.positions, targets, 0).rows.filter((r) => Math.abs(r.drift) > 0.05) : [];
+    if (drift.length) add('media', 'rebalanceo', `${drift.length} ${drift.length === 1 ? 'valor se ha desviado' : 'valores se han desviado'} más de 5 puntos de su objetivo`,
+      drift.map((r) => `${r.name} ${pct(r.weight)} frente a ${pct(r.target)}`).join(' · ') + '. Corrígelo con la próxima aportación.');
+    else if (!Object.keys(targets || {}).length && portfolio.positions.length > 1) add('info', 'posiciones', 'Fija un peso objetivo para cada valor',
+      'Con objetivos, cada aportación se reparte hacia lo que va por debajo y evitas comprar solo lo que más ha subido.');
+
+    const small = transactions.filter((t) => t.type === 'buy' && t.fee > 0 && t.fee / (t.shares * t.price) > 0.01 && t.date >= addMonths(portfolio.today, -12));
+    if (small.length >= 2) {
+      const fees = small.reduce((s, t) => s + t.fee, 0);
+      add('media', 'datos', `${small.length} compras del último año pagaron más de un 1 % de comisión`,
+        `Suman ${eur(fees)}. En órdenes pequeñas la comisión fija pesa mucho: agrupa compras o usa planes de inversión, que no tienen comisión de ejecución.`, fees);
+    }
+
+    if (total > 0 && cash / total > 0.2 && cash > 500) add('info', 'proyeccion', `El ${pct(cash / total)} de la cuenta está en efectivo`,
+      `Son ${eur(cash)}. Decide cuánto es colchón y programa el resto como aportaciones periódicas.`);
+
+    const order = { alta: 0, media: 1, info: 2 };
+    return list.sort((a, b) => order[a.severity] - order[b.severity] || b.impact - a.impact);
+  }
+
+  return { SAVINGS_BRACKETS, taxOnSavings, savingsBase, taxSummary, washSales, harvestCandidates, rebalancePlan, projection, insights };
+});
+</script>
+<script>
+/* Cartera de ejemplo para la primera visita. Valores y precios inventados, con fechas relativas a hoy. */
+(function (root) {
+  'use strict';
+  const TC = root.TC;
+  TC.demoData = function (today) {
+    const ago = (n, day) => TC.addMonths(today, -n).slice(0, 8) + (day || '05');
+    const txs = [];
+    let n = 0;
+    const push = (date, type, isin, name, shares, price, amount, fee, tax, assetClass) =>
+      txs.push({ id: 'demo-' + (++n), date, type, isin, name, assetClass: assetClass || '', shares, price, amount, fee: fee || 0, tax: tax || 0 });
+    const W = ['IE00B4L5Y983', 'ETF MSCI World (ejemplo)'], E = ['IE00BKM4GZ66', 'ETF Mercados Emergentes (ejemplo)'];
+    push(ago(22, '01'), 'deposit', '', 'Ingreso', 0, 0, 6500);
+    for (let m = 22; m >= 1; m--) {
+      const k = (22 - m) / 21;
+      if (m < 22) push(ago(m, '01'), 'deposit', '', 'Ingreso mensual', 0, 0, 450);
+      push(ago(m, '02'), 'buy', W[0], W[1], +(300 / (80 + 28 * k)).toFixed(4), +(80 + 28 * k).toFixed(2), 0, 0, 0, 'ETF');
+      push(ago(m, '02'), 'buy', E[0], E[1], +(100 / (30 + 4 * k)).toFixed(4), +(30 + 4 * k).toFixed(2), 0, 0, 0, 'ETF');
+      if (m % 3 === 0) push(ago(m, '03'), 'interest', '', 'Intereses del efectivo', 0, 0, 9.2, 0, 2.16);
+    }
+    push(ago(20, '12'), 'buy', 'US0000000001', 'Tecnológica Norte (ejemplo)', 10, 170, 0, 1);
+    push(ago(18, '14'), 'buy', 'NL0000000002', 'Litografía Delta (ejemplo)', 3, 650, 0, 1);
+    push(ago(14, '20'), 'buy', 'US0000000003', 'Deportiva Austral (ejemplo)', 20, 95, 0, 1);
+    for (const m of [6, 5, 4]) push(ago(m, '18'), 'buy', 'ES0000000004', 'Textil Atlántica (ejemplo)', 1, 47 + (6 - m), 0, 1);
+    push(ago(3, '10'), 'sell', 'US0000000001', 'Tecnológica Norte (ejemplo)', 4, 235, 0, 1);
+    push(ago(2, '15'), 'dividend', 'US0000000001', 'Tecnológica Norte (ejemplo)', 0, 0, 5.1, 0, 0.9);
+    push(ago(2, '22'), 'dividend', 'ES0000000004', 'Textil Atlántica (ejemplo)', 0, 0, 2.43, 0, 0.57);
+    const prices = {};
+    const set = (isin, price) => { prices[isin] = { price, date: today }; };
+    set(W[0], 111); set(E[0], 34.5); set('US0000000001', 240); set('NL0000000002', 720); set('US0000000003', 62); set('ES0000000004', 51);
+    const targets = { [W[0]]: 60, [E[0]]: 15, US0000000001: 10, NL0000000002: 10, ES0000000004: 5 };
+    return { transactions: txs, prices, targets };
+  };
+})(typeof self !== 'undefined' ? self : globalThis);
+</script>
+<script>
+/* Interfaz: estado en localStorage, seis vistas y gráficos dibujados a mano. */
+(function () {
+  'use strict';
+  const TC = window.TC;
+  const STORE_KEY = 'brujula-cartera-v1';
+  const VIEWS = ['resumen', 'posiciones', 'rebalanceo', 'fiscalidad', 'proyeccion', 'datos'];
+  const VIEW_NAMES = { resumen: 'Resumen', posiciones: 'Posiciones', rebalanceo: 'Rebalanceo', fiscalidad: 'Fiscalidad', proyeccion: 'Proyección', datos: 'Datos' };
+  const TYPE_NAMES = { buy: 'Compra', sell: 'Venta', dividend: 'Dividendo', interest: 'Intereses', deposit: 'Ingreso', withdrawal: 'Retirada', fee: 'Comisión', tax: 'Impuesto' };
+  const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  // ---------- Formato ----------
+  const nf = (opts) => new Intl.NumberFormat('es-ES', Object.assign({ useGrouping: 'always' }, opts));
+  const fEur = nf({ style: 'currency', currency: 'EUR' });
+  const fEur0 = nf({ style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  const fPct = nf({ style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const fNum = nf({ maximumFractionDigits: 4 });
+  const fCompact = nf({ notation: 'compact', maximumFractionDigits: 1 });
+  const eur = (n) => fEur.format(n);
+  const eur0 = (n) => fEur0.format(n);
+  const pct = (n) => fPct.format(n);
+  const sign = (n, fmt) => (n > 0 ? '+' : '') + fmt(n);
+  const cls = (n) => (n > 0.005 ? 'pos' : n < -0.005 ? 'neg' : '');
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fDate = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+  const $ = (sel) => document.querySelector(sel);
+
+  // ---------- Estado ----------
+  const defaults = () => ({
+    transactions: [], prices: {}, targets: {}, cashOverride: null, isDemo: false,
+    contribution: 500, proj: { monthly: 400, years: 20, ret: 6, cost: 0.2, infl: 2 },
+  });
+  let state = load();
+  let ui = { pending: null, notice: '', confirmWipe: false, taxYear: null, backup: '' };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) return Object.assign(defaults(), JSON.parse(raw));
+    } catch (e) { /* sin almacenamiento: se trabaja en memoria */ }
+    return Object.assign(defaults(), TC.demoData(todayISO()), { isDemo: true });
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* idem */ }
+  }
+  function leaveDemo() {
+    if (state.isDemo) state = Object.assign(defaults(), { proj: state.proj, contribution: state.contribution });
+  }
+
+  function model() {
+    const portfolio = TC.computePortfolio(state.transactions, state.prices, { today: todayISO() });
+    const cash = state.cashOverride != null ? state.cashOverride : portfolio.cash;
+    return { portfolio, cash, total: portfolio.invested + cash };
+  }
+
+  // ---------- Vistas ----------
+  function kpi(label, value, note, valueClass) {
+    return `<div class="kpi"><span class="kpi-label">${label}</span><span class="kpi-value ${valueClass || ''}">${value}</span>${note ? `<span class="kpi-note">${note}</span>` : ''}</div>`;
+  }
+
+  function viewResumen(m) {
+    const p = m.portfolio;
+    if (!p.positions.length) return emptyState();
+    const tips = TC.insights(p, state.transactions, state.targets, m.cash);
+    const pills = { alta: 'Prioridad alta', media: 'Conviene revisar', info: 'Sugerencia' };
+    const tipsHtml = tips.length ? `<ul class="actions">${tips.map((t) => `<li>
+        <div class="action-head"><span class="pill ${t.severity}">${pills[t.severity]}</span><strong>${esc(t.title)}</strong></div>
+        <p class="small">${esc(t.detail)} <a href="#${t.view}">Abrir ${VIEW_NAMES[t.view]}</a></p></li>`).join('')}</ul>`
+      : '<p class="muted">Nada pendiente con los datos actuales.</p>';
+    const top = p.positions.slice(0, 8);
+    const rest = p.positions.slice(8);
+    const bars = top.map((x) => ({ label: x.name, weight: x.weight, value: x.value, target: targetShare(x.key, p) }));
+    if (rest.length) bars.push({ label: `Otros (${rest.length})`, weight: rest.reduce((s, x) => s + x.weight, 0), value: rest.reduce((s, x) => s + x.value, 0), target: null });
+    const max = Math.max(...bars.map((b) => Math.max(b.weight, b.target || 0)), 0.01);
+    const hasTargets = bars.some((b) => b.target != null);
+    const t = p.totals;
+    return `
+    <section>
+      <div class="kpis">
+        ${kpi('Valor total', eur0(m.total), `${eur0(p.invested)} invertido + ${eur0(m.cash)} en efectivo`)}
+        ${kpi('Plusvalía latente', sign(p.unrealized, eur0), `${sign(p.unrealizedPct, pct)} sobre ${eur0(p.cost)} de coste`, cls(p.unrealized))}
+        ${kpi('Rentabilidad anual', p.xirr == null ? '—' : sign(p.xirr, pct), 'Ponderada por tus aportaciones (TIR)', p.xirr == null ? '' : cls(p.xirr))}
+        ${kpi('Ya realizado', sign(t.realized + t.dividends + t.interest, eur0), `${eur0(t.dividends + t.interest)} en dividendos e intereses`, cls(t.realized + t.dividends + t.interest))}
+        ${kpi('Comisiones pagadas', eur(t.fees), t.buyVolume > 0 ? `${nf({ style: 'percent', maximumFractionDigits: 2 }).format(t.fees / t.buyVolume)} de lo comprado` : '')}
+      </div>
+    </section>
+    <div class="two">
+      <section class="panel">
+        <h2>Qué hacer ahora</h2>
+        ${tipsHtml}
+      </section>
+      <section class="panel">
+        <h2>Reparto de lo invertido</h2>
+        ${hasTargets ? '<div class="legend"><span><i class="swatch"></i>Peso actual</span><span><i class="swatch tick"></i>Peso objetivo</span></div>' : ''}
+        <div class="bars">${bars.map((b) => `
+          <div class="bar-row" data-tip="${esc(b.label)}: ${eur0(b.value)} · ${pct(b.weight)}${b.target != null ? ` · objetivo ${pct(b.target)}` : ''}">
+            <span class="bar-label">${esc(b.label)}</span>
+            <span class="bar-track"><span class="bar-fill" style="width:${(b.weight / max * 100).toFixed(2)}%"></span>${b.target != null ? `<span class="bar-target" style="left:calc(${(b.target / max * 100).toFixed(2)}% - 1px)"></span>` : ''}</span>
+            <span class="bar-value">${pct(b.weight)}</span>
+          </div>`).join('')}</div>
+      </section>
+    </div>`;
+  }
+
+  function targetShare(key, p) {
+    const keys = p.positions.filter((x) => state.targets[x.key] > 0);
+    if (!keys.length) return null;
+    const sum = keys.reduce((s, x) => s + state.targets[x.key], 0);
+    return (state.targets[key] || 0) / sum;
+  }
+
+  function emptyState() {
+    return `<section class="panel"><h2>Todavía no hay movimientos</h2>
+      <p class="lead">Importa la exportación CSV de tu bróker o añade tus compras a mano para ver la cartera.</p>
+      <div class="row"><a class="btn" href="#datos">Importar movimientos</a><button class="btn ghost" data-action="load-demo">Ver cartera de ejemplo</button></div></section>`;
+  }
+
+  function viewPosiciones(m) {
+    const p = m.portfolio;
+    if (!p.positions.length) return emptyState();
+    const tSum = p.positions.reduce((s, x) => s + (state.targets[x.key] || 0), 0);
+    return `
+    <section>
+      <h2>Posiciones</h2>
+      <p class="lead">Escribe el precio actual de cada valor tal como aparece en tu bróker y, si quieres, el peso que debería tener. Sin precio se usa el del último movimiento.</p>
+      <div class="panel table-scroll"><table>
+        <thead><tr><th>Valor</th><th>Títulos</th><th>Coste medio</th><th>Precio actual</th><th>Valor</th><th>Plusvalía</th><th>%</th><th>Peso</th><th>Objetivo %</th></tr></thead>
+        <tbody>${p.positions.map((x, i) => `<tr>
+          <td>${esc(x.name)}<span class="sub">${esc(x.isin || '')}${x.priceSource === 'last' ? ' · precio del último movimiento' : ` · precio del ${fDate(x.priceDate)}`}</span></td>
+          <td>${fNum.format(x.shares)}</td><td>${eur(x.avgCost)}</td>
+          <td><input id="price-${i}" type="number" min="0" step="any" inputmode="decimal" data-action="price" data-key="${esc(x.key)}" value="${x.priceSource === 'manual' ? x.price : ''}" placeholder="${x.price.toFixed(2)}" aria-label="Precio actual de ${esc(x.name)}"></td>
+          <td>${eur(x.value)}</td><td class="${cls(x.pnl)}">${sign(x.pnl, eur)}</td><td class="${cls(x.pnl)}">${sign(x.pnlPct, pct)}</td><td>${pct(x.weight)}</td>
+          <td><input id="target-${i}" type="number" min="0" max="100" step="any" inputmode="decimal" data-action="target" data-key="${esc(x.key)}" value="${state.targets[x.key] || ''}" placeholder="—" aria-label="Peso objetivo de ${esc(x.name)}"></td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr><td>Total invertido</td><td></td><td></td><td></td><td>${eur(p.invested)}</td><td class="${cls(p.unrealized)}">${sign(p.unrealized, eur)}</td><td class="${cls(p.unrealized)}">${sign(p.unrealizedPct, pct)}</td><td></td><td>${tSum ? fNum.format(tSum) + ' %' : ''}</td></tr></tfoot>
+      </table></div>
+      ${tSum && Math.abs(tSum - 100) > 0.01 ? `<p class="small muted">Los objetivos suman ${fNum.format(tSum)} %. Se reescalan a 100 % al calcular el rebalanceo.</p>` : ''}
+    </section>
+    <section>
+      <h3>Efectivo</h3>
+      <div class="form">
+        <label class="field">Efectivo en la cuenta (€)
+          <input id="cash-override" type="number" step="any" inputmode="decimal" data-action="cash" value="${state.cashOverride != null ? state.cashOverride : ''}" placeholder="${m.portfolio.cash.toFixed(2)}"></label>
+        <p class="small muted" style="max-width:52ch">Calculado a partir de los movimientos: ${eur(p.cash)}. Si no coincide con tu saldo real (por ejemplo, por pagos con tarjeta), escribe aquí el saldo correcto.</p>
+      </div>
+    </section>`;
+  }
+
+  function viewRebalanceo(m) {
+    const p = m.portfolio;
+    if (!p.positions.length) return emptyState();
+    const plan = TC.rebalancePlan(p.positions, state.targets, state.contribution);
+    const body = plan.rows.length ? `
+      <div class="panel table-scroll"><table>
+        <thead><tr><th>Valor</th><th>Peso actual</th><th>Objetivo</th><th>Desviación</th><th>Comprar</th><th>Títulos aprox.</th><th>Peso después</th></tr></thead>
+        <tbody>${plan.rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${pct(r.weight)}</td><td>${pct(r.target)}</td>
+          <td class="${Math.abs(r.drift) > 0.05 ? 'neg' : ''}">${sign(r.drift * 100, (n) => n.toFixed(1).replace('.', ','))} pp</td>
+          <td><strong>${r.buy >= 0.5 ? eur(r.buy) : '—'}</strong></td><td>${r.buy >= 0.5 ? fNum.format(r.sharesApprox) : '—'}</td><td>${pct(r.weightAfter)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td>Total</td><td></td><td></td><td></td><td>${eur(plan.rows.reduce((s, r) => s + r.buy, 0))}</td><td></td><td></td></tr></tfoot>
+      </table></div>
+      ${plan.excluded.length ? `<p class="small muted">Sin objetivo y fuera del cálculo: ${plan.excluded.map(esc).join(', ')}.</p>` : ''}`
+      : '<div class="panel"><p>Aún no has fijado pesos objetivo. <a href="#posiciones">Ponlos en Posiciones</a> y aquí verás cómo repartir cada aportación.</p></div>';
+    return `
+    <section>
+      <h2>Reparto de la próxima aportación</h2>
+      <p class="lead">El dinero nuevo va a los valores que están por debajo de su objetivo. Así corriges la cartera sin vender, y por tanto sin adelantar impuestos ni pagar comisiones de venta.</p>
+      <div class="form"><label class="field">Aportación (€)
+        <input id="contribution" type="number" min="0" step="50" inputmode="decimal" data-action="contribution" value="${state.contribution}"></label></div>
+      ${body}
+    </section>`;
+  }
+
+  function viewFiscalidad(m) {
+    const p = m.portfolio;
+    const thisYear = Number(p.today.slice(0, 4));
+    const years = [...new Set([thisYear, ...p.realized.map((r) => +r.date.slice(0, 4)), ...p.income.map((r) => +r.date.slice(0, 4))])].sort((a, b) => b - a);
+    const year = years.includes(ui.taxYear) ? ui.taxYear : thisYear;
+    const s = TC.taxSummary(p, year);
+    const harvest = year === thisYear ? TC.harvestCandidates(p, year) : [];
+    const wash = TC.washSales(state.transactions, p).filter((w) => +w.date.slice(0, 4) === year);
+    return `
+    <section>
+      <div class="row" style="justify-content:space-between">
+        <h2>Estimación del IRPF del ahorro</h2>
+        <label class="field">Ejercicio <select id="tax-year" data-action="tax-year">${years.map((y) => `<option${y === year ? ' selected' : ''}>${y}</option>`).join('')}</select></label>
+      </div>
+      <p class="lead">Cálculo con criterio FIFO y la escala del ahorro española (19 % hasta 6.000 €, 21 % hasta 50.000 €, 23 % hasta 200.000 €, 27 % hasta 300.000 € y 30 % en adelante). No incluye otras rentas del ahorro ni pérdidas pendientes de años anteriores.</p>
+      <div class="kpis">
+        ${kpi('Ganancias y pérdidas', sign(s.net, eur0), `${eur0(s.gains)} ganado, ${eur0(s.losses)} perdido`, cls(s.net))}
+        ${kpi('Dividendos e intereses', eur0(s.incomeGross), 'Importe bruto')}
+        ${kpi('Base del ahorro', eur0(s.base), s.carry > 0 ? `${eur0(s.carry)} de pérdidas a compensar en 4 años` : '')}
+        ${kpi('IRPF estimado', eur0(s.tax), `${eur0(s.withheld)} ya retenido`)}
+        ${kpi('A pagar en la renta', eur0(Math.max(0, s.due)), s.due < 0 ? `${eur0(-s.due)} a tu favor` : 'Estimación')}
+      </div>
+    </section>
+    ${wash.length ? `<section><h3>Pérdidas que pueden no ser deducibles</h3>
+      <p class="lead">Regla de los dos meses: si compras el mismo valor en los dos meses anteriores o posteriores a venderlo con pérdidas y lo mantienes, esa pérdida queda aplazada hasta que vendas lo recomprado.</p>
+      <div class="panel table-scroll"><table><thead><tr><th>Valor</th><th>Venta</th><th>Pérdida</th><th>Compras cercanas</th></tr></thead>
+      <tbody>${wash.map((w) => `<tr><td>${esc(w.name)}</td><td>${fDate(w.date)}</td><td class="neg">${eur(w.gain)}</td><td>${w.rebuys.map(fDate).join(', ')}</td></tr>`).join('')}</tbody></table></div></section>` : ''}
+    ${year === thisYear ? `<section><h3>Posiciones en pérdidas que podrías aflorar antes del 31 de diciembre</h3>
+      ${harvest.length ? `<p class="lead">Vender en pérdidas reduce la base de este año si tienes ganancias realizadas. Solo compensa si el valor ya no encaja en tu plan o puedes sustituirlo por otro distinto: no lo recompres en dos meses.</p>
+      <div class="panel table-scroll"><table><thead><tr><th>Valor</th><th>Valor actual</th><th>Pérdida latente</th><th>Ahorro de IRPF este año</th><th>Aviso</th></tr></thead>
+      <tbody>${harvest.map((h) => `<tr><td>${esc(h.name)}</td><td>${eur(h.value)}</td><td class="neg">${eur(h.loss)}</td><td><strong>${eur(h.saving)}</strong></td>
+        <td>${h.recentBuy ? `Compra el ${fDate(h.recentBuy)}: afecta la regla de los dos meses` : h.saving < 0.5 ? 'Sin ganancias que compensar: quedaría para años futuros' : '—'}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted">Ninguna posición tiene pérdidas latentes.</p>'}</section>` : ''}
+    <section><h3>Ventas de ${year}</h3>
+      ${s.ops.length ? `<div class="panel table-scroll"><table><thead><tr><th>Valor</th><th>Fecha</th><th>Títulos</th><th>Importe de venta</th><th>Coste de compra</th><th>Resultado</th></tr></thead>
+      <tbody>${s.ops.map((r) => `<tr><td>${esc(r.name)}${r.incomplete ? '<span class="sub">Faltan compras anteriores</span>' : ''}</td><td>${fDate(r.date)}</td><td>${fNum.format(r.shares)}</td><td>${eur(r.proceeds)}</td><td>${eur(r.cost)}</td><td class="${cls(r.gain)}">${sign(r.gain, eur)}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted">Sin ventas en este ejercicio.</p>'}
+    </section>`;
+  }
+
+  function projData(m) {
+    const j = state.proj;
+    return TC.projection({ initial: Math.max(0, m.total), monthly: j.monthly, years: j.years, annualReturn: j.ret / 100, annualCost: j.cost / 100, inflation: j.infl / 100 });
+  }
+
+  function viewProyeccion(m) {
+    const j = state.proj;
+    const data = projData(m);
+    const end = data[data.length - 1];
+    const f = (id, label, key, step, min, max) => `<label class="field">${label}<input id="${id}" type="number" step="${step}" min="${min}" max="${max}" inputmode="decimal" data-action="proj" data-key="${key}" value="${j[key]}"></label>`;
+    return `
+    <section>
+      <h2>Proyección a largo plazo</h2>
+      <p class="lead">Parte de tu valor actual (${eur0(Math.max(0, m.total))}). La rentabilidad es una hipótesis tuya, no una previsión: prueba también con cifras bajas.</p>
+      <div class="form">
+        ${f('proj-monthly', 'Aportación mensual (€)', 'monthly', 50, 0, 100000)}
+        ${f('proj-years', 'Años', 'years', 1, 1, 50)}
+        ${f('proj-ret', 'Rentabilidad anual (%)', 'ret', 0.5, -10, 20)}
+        ${f('proj-cost', 'Costes anuales, TER (%)', 'cost', 0.05, 0, 5)}
+        ${f('proj-infl', 'Inflación (%)', 'infl', 0.5, 0, 15)}
+      </div>
+      <div class="kpis">
+        ${kpi(`Valor en ${j.years} años`, eur0(end.value), `${eur0(end.real)} en euros de hoy`)}
+        ${kpi('Total aportado', eur0(end.contributed), `${eur0(j.monthly * 12)} al año`)}
+        ${kpi('Generado por la inversión', sign(end.value - end.contributed, eur0), '', cls(end.value - end.contributed))}
+        ${kpi('Lo que se llevan los costes', eur0(end.noCost - end.value), `Con un ${String(j.cost).replace('.', ',')} % anual`)}
+      </div>
+      <div class="panel">
+        <div class="legend"><span><i class="swatch"></i>Valor proyectado</span><span><i class="swatch s2"></i>Total aportado</span></div>
+        <div class="chart" id="proj-chart"></div>
+      </div>
+    </section>`;
+  }
+
+  function viewDatos(m) {
+    const txs = state.transactions.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+    return `
+    <section>
+      <h2>Importar movimientos</h2>
+      <p class="lead">Descarga la exportación de transacciones en CSV desde tu bróker y cárgala aquí. El fichero se lee en tu navegador y no se envía a ningún sitio. Puedes volver a importarlo más adelante: los movimientos repetidos se descartan.</p>
+      <div class="form">
+        <label class="field">Fichero CSV o copia de seguridad<input id="file" type="file" accept=".csv,.txt,.json,text/csv,application/json" data-action="file"></label>
+      </div>
+      <label class="field">O pega aquí el contenido del CSV<textarea id="paste" placeholder="datetime,type,name,symbol,shares,price,amount,fee,tax…"></textarea></label>
+      <div class="row"><button class="btn ghost" data-action="paste">Leer texto pegado</button></div>
+      ${ui.notice ? `<p class="banner" role="status">${esc(ui.notice)}</p>` : ''}
+      ${ui.pending ? pendingHtml() : ''}
+    </section>
+    <section>
+      <h3>Añadir un movimiento a mano</h3>
+      <form class="form" id="manual">
+        <label class="field">Fecha<input id="m-date" name="date" type="date" required value="${todayISO()}"></label>
+        <label class="field">Tipo<select id="m-type" name="type">${Object.keys(TYPE_NAMES).filter((t) => t !== 'tax').map((t) => `<option value="${t}">${TYPE_NAMES[t]}</option>`).join('')}</select></label>
+        <label class="field">Nombre del valor<input id="m-name" name="name" type="text"></label>
+        <label class="field">ISIN<input id="m-isin" name="isin" type="text" maxlength="12"></label>
+        <label class="field">Títulos<input id="m-shares" name="shares" type="number" step="any" min="0" inputmode="decimal"></label>
+        <label class="field">Precio (€)<input id="m-price" name="price" type="number" step="any" min="0" inputmode="decimal"></label>
+        <label class="field">Importe (€)<input id="m-amount" name="amount" type="number" step="any" min="0" inputmode="decimal"></label>
+        <label class="field">Comisión (€)<input id="m-fee" name="fee" type="number" step="any" min="0" inputmode="decimal"></label>
+        <button class="btn" type="submit">Añadir</button>
+      </form>
+      <p class="small muted">Compras y ventas necesitan títulos y precio. El resto de movimientos, solo el importe.</p>
+    </section>
+    <section>
+      <h3>${state.transactions.length} movimientos guardados${state.isDemo ? ' (ejemplo)' : ''}</h3>
+      ${m.portfolio.warnings.map((w) => `<p class="banner">${esc(w)}</p>`).join('')}
+      ${txs.length ? `<div class="panel table-scroll" style="max-height:420px;overflow-y:auto"><table>
+        <thead><tr><th>Movimiento</th><th>Fecha</th><th>Títulos</th><th>Precio</th><th>Importe</th><th>Comisión</th><th></th></tr></thead>
+        <tbody>${txs.slice(0, 200).map((t) => {
+          const trade = t.type === 'buy' || t.type === 'sell';
+          return `<tr><td>${TYPE_NAMES[t.type]}<span class="sub">${esc(t.name || '')}</span></td><td>${fDate(t.date)}</td><td>${trade ? fNum.format(t.shares) : ''}</td><td>${trade ? eur(t.price) : ''}</td>
+          <td>${eur(trade ? t.shares * t.price : t.amount)}</td><td>${t.fee ? eur(t.fee) : ''}</td><td><button class="btn link" data-action="del" data-id="${esc(t.id)}" aria-label="Borrar movimiento del ${fDate(t.date)}">Borrar</button></td></tr>`;
+        }).join('')}</tbody></table></div>${txs.length > 200 ? '<p class="small muted">Se muestran los 200 más recientes.</p>' : ''}` : ''}
+    </section>
+    <section>
+      <h3>Copia de seguridad</h3>
+      <p class="lead">Los datos viven solo en este navegador. Guarda una copia para llevarlos a otro dispositivo o por si borras los datos de navegación.</p>
+      <div class="row">
+        <button class="btn ghost" data-action="backup">Generar copia</button>
+        <button class="btn ghost" data-action="load-demo">Cargar cartera de ejemplo</button>
+        <button class="btn danger" data-action="wipe">${ui.confirmWipe ? 'Pulsa otra vez para borrar todo' : 'Borrar todos los datos'}</button>
+      </div>
+      ${ui.backup ? `<label class="field">Copia en texto: guárdala en un fichero .json. Para restaurarla, cárgala arriba como fichero o pégala en el cuadro de importación.
+        <textarea id="backup-text" readonly>${esc(ui.backup)}</textarea></label>
+        <div class="row"><button class="btn ghost" data-action="copy-backup">Copiar</button><button class="btn ghost" data-action="download-backup">Descargar fichero</button></div>` : ''}
+    </section>`;
+  }
+
+  const MAP_FIELDS = ['date', 'type', 'name', 'isin', 'shares', 'price', 'amount', 'fee', 'tax', 'id'];
+  function pendingHtml() {
+    const pd = ui.pending;
+    const res = TC.normalizeRows(pd.headers, pd.rows, pd.mapping);
+    pd.result = res;
+    const counts = {};
+    res.transactions.forEach((t) => { counts[t.type] = (counts[t.type] || 0) + 1; });
+    const reasons = {};
+    res.skipped.forEach((s) => { reasons[s.reason] = (reasons[s.reason] || 0) + 1; });
+    return `<div class="panel">
+      <h3>Comprueba las columnas</h3>
+      <p class="small muted">Se han leído ${pd.rows.length} filas. Corrige cualquier columna mal asignada antes de importar.</p>
+      <div class="form">${MAP_FIELDS.map((f) => `<label class="field">${TC.FIELD_LABELS[f]}
+        <select id="map-${f}" data-action="map" data-field="${f}"><option value="-1">No está en el fichero</option>
+        ${pd.headers.map((h, i) => `<option value="${i}"${pd.mapping[f] === i ? ' selected' : ''}>${esc(h || `Columna ${i + 1}`)}</option>`).join('')}</select></label>`).join('')}</div>
+      <p><strong>${res.transactions.length} movimientos reconocidos</strong>${res.transactions.length ? ': ' + Object.keys(counts).map((k) => `${counts[k]} × ${TYPE_NAMES[k].toLowerCase()}`).join(', ') : ''}.</p>
+      ${res.skipped.length ? `<p class="small muted">${res.skipped.length} filas descartadas: ${Object.keys(reasons).map((r) => `${reasons[r]} por «${r.toLowerCase()}»`).join(', ')}.</p>` : ''}
+      <div class="row"><button class="btn" data-action="confirm-import"${res.transactions.length ? '' : ' disabled'}>Importar ${res.transactions.length} movimientos</button>
+      <button class="btn ghost" data-action="cancel-import">Cancelar</button></div>
+      ${state.isDemo ? '<p class="small muted">Al importar se sustituye la cartera de ejemplo.</p>' : ''}
+    </div>`;
+  }
+
+  // ---------- Gráfico de líneas ----------
+  function niceMax(v) {
+    const pow = Math.pow(10, Math.floor(Math.log10(v || 1)));
+    for (const k of [1, 2, 2.5, 5, 10]) if (v <= k * pow) return k * pow;
+    return 10 * pow;
+  }
+
+  function drawProjection(m) {
+    const el = $('#proj-chart');
+    if (!el) return;
+    const data = projData(m);
+    const W = Math.max(300, el.clientWidth || 640), H = Math.round(Math.min(320, Math.max(220, W * 0.42)));
+    const mg = { l: 76, r: 14, t: 12, b: 26 };
+    const maxY = niceMax(Math.max(...data.map((d) => Math.max(d.value, d.contributed)), 1));
+    const n = data.length - 1;
+    const x = (i) => mg.l + (W - mg.l - mg.r) * (i / n);
+    const y = (v) => H - mg.b - (H - mg.t - mg.b) * (Math.max(0, v) / maxY);
+    const path = (key) => data.map((d, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(d[key]).toFixed(1)}`).join('');
+    const year0 = Number(m.portfolio.today.slice(0, 4));
+    const stepX = Math.max(1, Math.ceil(n / (W < 480 ? 4 : 8)));
+    let g = '';
+    for (let k = 0; k <= 4; k++) {
+      const v = maxY * k / 4;
+      g += `<line x1="${mg.l}" x2="${W - mg.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${mg.l - 8}" y="${y(v) + 4}" text-anchor="end">${fCompact.format(v)} €</text>`;
+    }
+    for (let i = 0; i <= n; i += stepX) g += `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === n ? 'end' : 'middle'}">${year0 + i}</text>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución proyectada del valor de la cartera frente al total aportado">
+      ${g}
+      <path d="${path('value')}L${x(n)},${y(0)}L${x(0)},${y(0)}Z" fill="var(--series-1)" opacity="0.1"/>
+      <path d="${path('contributed')}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="${path('value')}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="${x(n)}" cy="${y(data[n].value)}" r="4" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2"/>
+      <g id="cross" visibility="hidden"><line id="cross-line" y1="${mg.t}" y2="${H - mg.b}" stroke="var(--ink-3)" stroke-width="1"/>
+        <circle id="cross-a" r="4" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2"/><circle id="cross-b" r="4" fill="var(--series-2)" stroke="var(--surface)" stroke-width="2"/></g>
+      <rect id="hit" x="${mg.l}" y="0" width="${W - mg.l - mg.r}" height="${H}" fill="transparent"/>
+    </svg>`;
+    const svg = el.querySelector('svg'), cross = svg.querySelector('#cross');
+    const move = (ev) => {
+      const box = svg.getBoundingClientRect();
+      const px = (ev.clientX - box.left) * (W / box.width);
+      const i = Math.max(0, Math.min(n, Math.round((px - mg.l) / (W - mg.l - mg.r) * n)));
+      const d = data[i];
+      cross.setAttribute('visibility', 'visible');
+      svg.querySelector('#cross-line').setAttribute('x1', x(i)); svg.querySelector('#cross-line').setAttribute('x2', x(i));
+      svg.querySelector('#cross-a').setAttribute('cx', x(i)); svg.querySelector('#cross-a').setAttribute('cy', y(d.value));
+      svg.querySelector('#cross-b').setAttribute('cx', x(i)); svg.querySelector('#cross-b').setAttribute('cy', y(d.contributed));
+      showTip(`<strong>${year0 + i}</strong><br>Valor proyectado: ${eur0(d.value)}<br>Total aportado: ${eur0(d.contributed)}`, ev.clientX, ev.clientY);
+    };
+    svg.addEventListener('pointermove', move);
+    svg.addEventListener('pointerdown', move);
+    svg.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); hideTip(); });
+  }
+
+  // ---------- Tooltip ----------
+  const tip = $('#tip');
+  function showTip(html, cx, cy) {
+    tip.innerHTML = html;
+    tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, cx + 14)) + 'px';
+    tip.style.top = Math.max(8, cy - h - 12) + 'px';
+  }
+  function hideTip() { tip.hidden = true; }
+  document.addEventListener('pointermove', (ev) => {
+    const row = ev.target.closest && ev.target.closest('[data-tip]');
+    if (row) showTip(esc(row.dataset.tip), ev.clientX, ev.clientY);
+    else if (!ev.target.closest || !ev.target.closest('#proj-chart')) hideTip();
+  });
+
+  // ---------- Render ----------
+  function currentView() {
+    const h = location.hash.replace('#', '');
+    return VIEWS.includes(h) ? h : 'resumen';
+  }
+  function render() {
+    const view = currentView();
+    const m = model();
+    document.querySelectorAll('#tabs a').forEach((a) => {
+      if (a.getAttribute('href') === '#' + view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    $('#banner').innerHTML = state.isDemo
+      ? `<div class="banner"><span><strong>Cartera de ejemplo.</strong> Valores, precios y movimientos son inventados para mostrar cómo funciona.</span><a class="btn" href="#datos">Importar mis movimientos</a></div>`
+      : (m.portfolio.cash < -1 && state.cashOverride == null && state.transactions.length ? `<div class="banner"><span>El efectivo calculado sale negativo (${eur(m.portfolio.cash)}): faltan ingresos en los movimientos. Indica tu saldo real en <a href="#posiciones">Posiciones</a>.</span></div>` : '');
+    const fn = { resumen: viewResumen, posiciones: viewPosiciones, rebalanceo: viewRebalanceo, fiscalidad: viewFiscalidad, proyeccion: viewProyeccion, datos: viewDatos }[view];
+    $('#view').innerHTML = fn(m);
+    if (view === 'proyeccion') drawProjection(m);
+  }
+
+  // ---------- Acciones ----------
+  function readText(text, name) {
+    const trimmed = text.trim();
+    ui.notice = ''; ui.pending = null;
+    if (!trimmed) { ui.notice = 'No hay nada que leer: el fichero o el texto están vacíos.'; return render(); }
+    if (trimmed[0] === '{') {
+      try {
+        const data = JSON.parse(trimmed);
+        if (!Array.isArray(data.transactions)) throw new Error('formato');
+        state = Object.assign(defaults(), data, { isDemo: false });
+        save();
+        ui.notice = `Copia restaurada: ${state.transactions.length} movimientos.`;
+      } catch (e) { ui.notice = 'Ese texto no es una copia de seguridad válida de esta aplicación.'; }
+      return render();
+    }
+    const parsed = TC.parseCSV(trimmed);
+    if (parsed.headers.length < 2 || !parsed.rows.length) { ui.notice = 'No se reconocen columnas en ese texto. Comprueba que es un CSV con una fila de cabecera.'; return render(); }
+    ui.pending = { headers: parsed.headers, rows: parsed.rows, mapping: TC.autoMap(parsed.headers), name };
+    render();
+  }
+
+  function act(action, el) {
+    const key = el.dataset.key;
+    const val = el.value === '' || el.value == null ? null : Number(el.value);
+    switch (action) {
+      case 'price':
+        if (val > 0) state.prices[key] = { price: val, date: todayISO() }; else delete state.prices[key];
+        break;
+      case 'target':
+        if (val > 0) state.targets[key] = Math.min(100, val); else delete state.targets[key];
+        break;
+      case 'cash': state.cashOverride = val == null || !Number.isFinite(val) ? null : val; break;
+      case 'contribution': state.contribution = Math.max(0, val || 0); break;
+      case 'proj': {
+        const lim = { monthly: [0, 1e6], years: [1, 50], ret: [-10, 20], cost: [0, 5], infl: [0, 15] }[key];
+        state.proj[key] = Math.max(lim[0], Math.min(lim[1], val == null || !Number.isFinite(val) ? 0 : val));
+        if (key === 'years') state.proj.years = Math.round(state.proj.years);
+        break;
+      }
+      case 'tax-year': ui.taxYear = Number(el.value); break;
+      case 'map': ui.pending.mapping[el.dataset.field] = Number(el.value); break;
+      case 'file': {
+        const file = el.files && el.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => readText(String(reader.result), file.name);
+        reader.onerror = () => { ui.notice = 'No se ha podido leer el fichero.'; render(); };
+        reader.readAsText(file);
+        return;
+      }
+      case 'paste': return readText($('#paste').value, 'texto pegado');
+      case 'confirm-import': {
+        leaveDemo();
+        const r = TC.mergeTransactions(state.transactions, ui.pending.result.transactions);
+        state.transactions = r.merged;
+        ui.notice = `${r.added} movimientos añadidos` + (r.duplicates ? `, ${r.duplicates} ya estaban y se han omitido.` : '.') + ' Revisa ahora los precios en Posiciones.';
+        ui.pending = null;
+        break;
+      }
+      case 'cancel-import': ui.pending = null; break;
+      case 'del': state.transactions = state.transactions.filter((t) => t.id !== el.dataset.id); break;
+      case 'load-demo': state = Object.assign(defaults(), TC.demoData(todayISO()), { isDemo: true }); ui.notice = ''; break;
+      case 'wipe':
+        if (!ui.confirmWipe) { ui.confirmWipe = true; return render(); }
+        state = defaults(); ui = { pending: null, notice: 'Datos borrados.', confirmWipe: false, taxYear: null, backup: '' };
+        break;
+      case 'backup': ui.backup = JSON.stringify(state); return render();
+      case 'copy-backup': {
+        const ta = $('#backup-text');
+        const done = () => { el.textContent = 'Copiado'; };
+        const fallback = () => { ta.focus(); ta.select(); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ui.backup).then(done, fallback); else fallback();
+        return;
+      }
+      case 'download-backup': {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([ui.backup], { type: 'application/json' }));
+        a.download = `cartera-${todayISO()}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        return;
+      }
+      default: return;
+    }
+    if (action !== 'wipe') ui.confirmWipe = false;
+    save();
+    render();
+  }
+
+  document.addEventListener('change', (ev) => {
+    const el = ev.target.closest('[data-action]');
+    if (el && el.tagName !== 'BUTTON') act(el.dataset.action, el);
+  });
+  document.addEventListener('click', (ev) => {
+    const el = ev.target.closest('button[data-action]');
+    if (el) act(el.dataset.action, el);
+  });
+  document.addEventListener('submit', (ev) => {
+    if (ev.target.id !== 'manual') return;
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(ev.target).entries());
+    const trade = f.type === 'buy' || f.type === 'sell';
+    const shares = Number(f.shares) || 0, price = Number(f.price) || 0, amount = Number(f.amount) || 0;
+    const isin = f.isin.trim().toUpperCase(), name = f.name.trim() || isin;
+    if (trade && (!(shares > 0) || !(price > 0) || !name)) { ui.notice = 'Una compra o venta necesita nombre o ISIN, títulos y precio.'; return render(); }
+    if (!trade && !(amount > 0)) { ui.notice = 'Indica el importe del movimiento.'; return render(); }
+    leaveDemo();
+    state.transactions.push({ id: 'manual-' + Date.now(), date: f.date, type: f.type, isin, name, assetClass: '', shares: trade ? shares : 0, price: trade ? price : 0, amount: trade ? 0 : amount, fee: Number(f.fee) || 0, tax: 0 });
+    ui.notice = 'Movimiento añadido.';
+    save();
+    render();
+  });
+  window.addEventListener('hashchange', () => { ui.confirmWipe = false; render(); window.scrollTo(0, 0); });
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (currentView() === 'proyeccion') drawProjection(model()); }, 150);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
