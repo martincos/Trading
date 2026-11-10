@@ -13,9 +13,10 @@ asesoramiento financiero ni fiscal.
 |---|---|
 | Resumen | Valor total, plusvalía latente, rentabilidad anualizada (TIR ponderada por aportaciones), comisiones y una lista priorizada de acciones |
 | Posiciones | Coste medio FIFO por valor, precio actual editable y peso objetivo |
-| Rebalanceo | Reparte la próxima aportación solo con compras para acercarse a los objetivos, sin vender |
+| Rebalanceo | Reparte la próxima aportación solo con compras para acercarse a los objetivos, sin vender, y la escribe como órdenes para copiar al bróker |
+| Operación | Reglas de riesgo propias, cálculo de cuántos títulos comprar según entrada, stop y objetivo, y niveles de precio vigilados |
 | Fiscalidad | Estimación del IRPF del ahorro (España), pérdidas latentes que compensan ganancias y avisos de la regla de los dos meses |
-| Proyección | Evolución a largo plazo con aportaciones mensuales, costes e inflación |
+| Proyección | 5.000 simulaciones repetibles (semilla fija) con aportaciones mensuales, volatilidad, costes e inflación: resultado central, escenarios malo y bueno y probabilidad de acabar por debajo de lo aportado |
 | Datos | Importación de CSV, alta manual, copia de seguridad y borrado |
 
 ## Cómo usarla
@@ -39,7 +40,8 @@ separadores `,` `;` o tabulador y decimales con coma o punto. Las columnas se pu
 
 ## Limitaciones conocidas
 
-- Los precios actuales se introducen a mano; no hay cotizaciones en tiempo real.
+- Los precios actuales se introducen a mano; no hay cotizaciones en tiempo real. Los niveles vigilados se comprueban contra esos precios, así que no sustituyen a una orden stop en el bróker.
+- La simulación supone rentabilidades mensuales lognormales independientes con la rentabilidad y volatilidad que indiques; no modela crisis, cambios de régimen ni tu comportamiento.
 - Todos los importes se tratan como euros.
 - Si una compra o venta no trae precio por título, se calcula como importe ÷ títulos; si ese importe ya incluye la
   comisión, el coste queda desviado en esa comisión.
@@ -58,3 +60,12 @@ npm run build   # regenera dist/brujula-cartera.html
 - `js/portfolio.js`: lotes FIFO, plusvalías, efectivo y TIR
 - `js/advice.js`: fiscalidad, rebalanceo, proyección y recomendaciones
 - `js/app.js`: interfaz
+
+## Ideas tomadas de day-trader-skill
+
+Las skills de `.claude/skills/` (Jakeschincariol/day-trader-skill, MIT) inspiran varias piezas de la aplicación, adaptadas
+a una cartera a largo plazo: el tamaño de la operación limitado por la pérdida máxima (trader-budget, trader-exit),
+las comprobaciones «pasa / falla» contra reglas propias (trader-risk), los niveles vigilados (trader-alerts), la
+simulación repetible con semilla (trader-timemachine) y las órdenes escritas en claro que solo el usuario ejecuta
+(trader-broker). El escáner, las noticias y los datos de la SEC necesitan conexión a servicios externos y siguen
+disponibles solo como skills.

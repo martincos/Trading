@@ -155,3 +155,51 @@ test('proyección: sin rentabilidad el valor es lo aportado', () => {
   near(g[10].noCost, 1000 * 1.07 ** 10, 0.01);
   assert.ok(g[10].value < g[10].noCost && g[10].real < g[10].value);
 });
+
+const RULES = { maxLoss: 50, maxPositionPct: 75, cashBufferPct: 10, minRR: 1, fee: 0 };
+
+test('tamaño de la operación: decide el menor de los límites', () => {
+  const r = advice.sizeTrade({ entry: 364.18, stop: 358.32, target: 370.04, account: 5000, cash: 5000, heldValue: 0, rules: RULES });
+  assert.equal(r.shares, 8);
+  assert.equal(r.decidedBy, 'loss');
+  assert.deepEqual(r.limits.map((l) => l.shares), [8, 10, 12]);
+  near(r.lossAtStop, 46.88); near(r.rr, 1); near(r.breakEven, 0.5);
+  assert.equal(r.ok, true);
+});
+
+test('tamaño de la operación: las comisiones reducen títulos y rentabilidad:riesgo', () => {
+  const r = advice.sizeTrade({ entry: 364.18, stop: 358.32, target: 370.04, account: 5000, cash: 5000, heldValue: 0, rules: { ...RULES, fee: 1 } });
+  assert.equal(r.shares, 8);
+  near(r.lossAtStop, 48.88); near(r.gainAtTarget, 44.88);
+  assert.equal(r.ok, false); // 0,92 < 1
+});
+
+test('tamaño de la operación: un stop demasiado lejano se rechaza, no se encoge', () => {
+  const far = advice.sizeTrade({ entry: 364.18, stop: 300, target: 500, account: 5000, cash: 5000, heldValue: 0, rules: RULES });
+  assert.equal(far.shares, 0); assert.equal(far.ok, false);
+  const bad = advice.sizeTrade({ entry: 100, stop: 101, target: 110, account: 5000, cash: 5000, heldValue: 0, rules: RULES });
+  assert.equal(bad.ok, false); assert.equal(bad.limits.length, 0);
+  const held = advice.sizeTrade({ entry: 100, stop: 99, target: 103, account: 5000, cash: 5000, heldValue: 3700, rules: RULES });
+  assert.equal(held.shares, 0); assert.equal(held.decidedBy, 'position');
+});
+
+test('niveles vigilados', () => {
+  const positions = [{ key: 'A', name: 'A', price: 62 }];
+  const out = advice.checkLevels([{ key: 'A', type: 'below', price: 65 }, { key: 'A', type: 'above', price: 70 }, { key: 'Z', name: 'Z', type: 'above', price: 1 }], positions);
+  assert.deepEqual(out.map((l) => l.hit), [true, false, false]);
+  assert.equal(out[2].held, false);
+});
+
+test('simulación: repetible con la misma semilla y coherente con la hipótesis', () => {
+  const args = { initial: 10000, monthly: 0, years: 10, annualReturn: 0.06, annualCost: 0, volatility: 0.15, paths: 4000, seed: 19 };
+  const a = advice.simulate(args), b = advice.simulate(args);
+  assert.deepEqual(a.rows[10], b.rows[10]);
+  const end = a.rows[10];
+  assert.ok(end.p10 < end.p50 && end.p50 < end.p90);
+  // mediana teórica: 10000 × exp(10 × (ln 1,06 − 0,15²/2)) ≈ 16.003
+  near(end.p50, 16003, 700);
+  assert.ok(a.probBelow > 0.05 && a.probBelow < 0.25);
+  const flat = advice.simulate({ ...args, volatility: 0, monthly: 100 });
+  near(flat.rows[10].p10, flat.rows[10].p90, 1e-6);
+  assert.equal(flat.probBelow, 0);
+});

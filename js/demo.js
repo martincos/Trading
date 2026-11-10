@@ -28,6 +28,11 @@
     const set = (isin, price) => { prices[isin] = { price, date: today }; };
     set(W[0], 111); set(E[0], 34.5); set('US0000000001', 240); set('NL0000000002', 720); set('US0000000003', 62); set('ES0000000004', 51);
     const targets = { [W[0]]: 60, [E[0]]: 15, US0000000001: 10, NL0000000002: 10, ES0000000004: 5 };
-    return { transactions: txs, prices, targets };
+    const trade = { name: 'Tecnológica Norte (ejemplo)', entry: 240, stop: 228, target: 264 };
+    const levels = [
+      { id: 'demo-l1', key: 'US0000000003', type: 'below', price: 58 },
+      { id: 'demo-l2', key: 'NL0000000002', type: 'above', price: 700 },
+    ];
+    return { transactions: txs, prices, targets, trade, levels };
   };
 })(typeof self !== 'undefined' ? self : globalThis);

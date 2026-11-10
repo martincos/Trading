@@ -3,8 +3,8 @@
   'use strict';
   const TC = window.TC;
   const STORE_KEY = 'brujula-cartera-v1';
-  const VIEWS = ['resumen', 'posiciones', 'rebalanceo', 'fiscalidad', 'proyeccion', 'datos'];
-  const VIEW_NAMES = { resumen: 'Resumen', posiciones: 'Posiciones', rebalanceo: 'Rebalanceo', fiscalidad: 'Fiscalidad', proyeccion: 'Proyección', datos: 'Datos' };
+  const VIEWS = ['resumen', 'posiciones', 'rebalanceo', 'operacion', 'fiscalidad', 'proyeccion', 'datos'];
+  const VIEW_NAMES = { resumen: 'Resumen', posiciones: 'Posiciones', rebalanceo: 'Rebalanceo', operacion: 'Operación', fiscalidad: 'Fiscalidad', proyeccion: 'Proyección', datos: 'Datos' };
   const TYPE_NAMES = { buy: 'Compra', sell: 'Venta', dividend: 'Dividendo', interest: 'Intereses', deposit: 'Ingreso', withdrawal: 'Retirada', fee: 'Comisión', tax: 'Impuesto' };
   const todayISO = () => {
     const d = new Date();
@@ -30,7 +30,9 @@
   // ---------- Estado ----------
   const defaults = () => ({
     transactions: [], prices: {}, targets: {}, cashOverride: null, isDemo: false,
-    contribution: 500, proj: { monthly: 400, years: 20, ret: 6, cost: 0.2, infl: 2 },
+    contribution: 500, proj: { monthly: 400, years: 20, ret: 6, vol: 15, cost: 0.2, infl: 2 },
+    rules: { maxLoss: 50, maxPositionPct: 25, cashBufferPct: 10, minRR: 1.5, fee: 1 },
+    trade: { name: '', entry: null, stop: null, target: null }, levels: [],
   });
   let state = load();
   let ui = { pending: null, notice: '', confirmWipe: false, taxYear: null, backup: '' };
@@ -38,15 +40,24 @@
   function load() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
-      if (raw) return Object.assign(defaults(), JSON.parse(raw));
+      if (raw) return hydrate(JSON.parse(raw));
     } catch (e) { /* sin almacenamiento: se trabaja en memoria */ }
     return Object.assign(defaults(), TC.demoData(todayISO()), { isDemo: true });
+  }
+  function hydrate(data) {
+    const d = defaults();
+    const out = Object.assign(d, data);
+    out.proj = Object.assign(defaults().proj, data.proj);
+    out.rules = Object.assign(defaults().rules, data.rules);
+    out.trade = Object.assign(defaults().trade, data.trade);
+    if (!Array.isArray(out.levels)) out.levels = [];
+    return out;
   }
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* idem */ }
   }
   function leaveDemo() {
-    if (state.isDemo) state = Object.assign(defaults(), { proj: state.proj, contribution: state.contribution });
+    if (state.isDemo) state = Object.assign(defaults(), { proj: state.proj, contribution: state.contribution, rules: state.rules });
   }
 
   function model() {
@@ -63,7 +74,7 @@
   function viewResumen(m) {
     const p = m.portfolio;
     if (!p.positions.length) return emptyState();
-    const tips = TC.insights(p, state.transactions, state.targets, m.cash);
+    const tips = TC.insights(p, state.transactions, state.targets, m.cash, { rules: state.rules, levels: state.levels });
     const pills = { alta: 'Prioridad alta', media: 'Conviene revisar', info: 'Sugerencia' };
     const tipsHtml = tips.length ? `<ul class="actions">${tips.map((t) => `<li>
         <div class="action-head"><span class="pill ${t.severity}">${pills[t.severity]}</span><strong>${esc(t.title)}</strong></div>
@@ -160,6 +171,7 @@
           <td><strong>${r.buy >= 0.5 ? eur(r.buy) : '—'}</strong></td><td>${r.buy >= 0.5 ? fNum.format(r.sharesApprox) : '—'}</td><td>${pct(r.weightAfter)}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td>Total</td><td></td><td></td><td></td><td>${eur(plan.rows.reduce((s, r) => s + r.buy, 0))}</td><td></td><td></td></tr></tfoot>
       </table></div>
+      ${planText(plan)}
       ${plan.excluded.length ? `<p class="small muted">Sin objetivo y fuera del cálculo: ${plan.excluded.map(esc).join(', ')}.</p>` : ''}`
       : '<div class="panel"><p>Aún no has fijado pesos objetivo. <a href="#posiciones">Ponlos en Posiciones</a> y aquí verás cómo repartir cada aportación.</p></div>';
     return `
@@ -169,6 +181,82 @@
       <div class="form"><label class="field">Aportación (€)
         <input id="contribution" type="number" min="0" step="50" inputmode="decimal" data-action="contribution" value="${state.contribution}"></label></div>
       ${body}
+    </section>`;
+  }
+
+  function planText(plan) {
+    const buys = plan.rows.filter((r) => r.buy >= 0.5);
+    if (!buys.length) return '';
+    const text = buys.map((r, i) => `ORDEN ${i + 1} de ${buys.length}: comprar ${eur(r.buy)} de ${r.name} (unos ${fNum.format(r.sharesApprox)} títulos a ${eur(r.price)})`).join('\n');
+    return `<label class="field">Órdenes propuestas. Nada se envía desde aquí: introdúcelas tú en tu bróker, una a una.
+      <textarea id="plan-text" readonly rows="${Math.min(8, buys.length + 1)}">${esc(text)}</textarea></label>
+      <div class="row"><button class="btn ghost" data-action="copy" data-target="plan-text">Copiar órdenes</button></div>`;
+  }
+
+  function viewOperacion(m) {
+    const p = m.portfolio, r = state.rules, t = state.trade;
+    const rule = (id, label, key, step, max) => `<label class="field">${label}<input id="${id}" type="number" min="0" max="${max}" step="${step}" inputmode="decimal" data-action="rule" data-key="${key}" value="${r[key]}"></label>`;
+    const tf = (id, label, key) => `<label class="field">${label}<input id="${id}" type="number" min="0" step="any" inputmode="decimal" data-action="trade" data-key="${key}" value="${t[key] != null ? t[key] : ''}"></label>`;
+    const ready = t.entry > 0 && t.stop > 0 && t.target > 0;
+    const held = p.positions.find((x) => t.name && (x.name.toLowerCase() === t.name.trim().toLowerCase() || x.isin === t.name.trim().toUpperCase()));
+    let result = '<p class="muted">Escribe entrada, stop y objetivo para ver cuántos títulos caben en tus reglas.</p>';
+    if (ready) {
+      const s = TC.sizeTrade({ entry: t.entry, stop: t.stop, target: t.target, account: Math.max(0, m.total), cash: Math.max(0, m.cash), heldValue: held ? held.value : 0, rules: r });
+      const failed = s.checks.filter((c) => !c.ok);
+      result = `
+      <div class="row"><span class="pill ${s.ok ? 'info' : 'alta'}">${s.ok ? 'Cumple tus reglas' : 'Bloqueada'}</span>
+        <span>${s.ok ? `Puedes comprar ${s.shares} títulos. Cumplir las reglas no es una recomendación de compra.` : esc(failed[0].name) + ': ' + esc(failed[0].detail)}</span></div>
+      ${s.shares > 0 ? `<div class="kpis">
+        ${kpi('Títulos', fNum.format(s.shares), `${eur(s.cost)} con comisión`)}
+        ${kpi('Pérdida si salta el stop', eur(-s.lossAtStop), `Límite: ${eur(r.maxLoss)}`, 'neg')}
+        ${kpi('Ganancia en el objetivo', sign(s.gainAtTarget, eur), 'Antes de impuestos', cls(s.gainAtTarget))}
+        ${kpi('Rentabilidad:riesgo', s.netRR.toFixed(2).replace('.', ','), `${s.rr.toFixed(2).replace('.', ',')} sin comisiones`)}
+        ${kpi('Aciertos para no perder', s.breakEven == null ? '—' : pct(s.breakEven), 'De las operaciones que tocan stop u objetivo')}
+      </div>` : ''}
+      ${s.limits.length ? `<div class="panel table-scroll"><table>
+        <thead><tr><th>Límite</th><th>Cálculo</th><th>Títulos</th></tr></thead>
+        <tbody>${s.limits.map((l) => `<tr><td>${l.name}${l.id === s.decidedBy ? '<span class="sub">Es el que decide</span>' : ''}</td><td>${esc(l.detail)}</td><td>${l.id === s.decidedBy ? `<strong>${l.shares}</strong>` : l.shares}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      <div class="panel"><ul class="actions">${s.checks.map((c) => `<li><div class="action-head"><span class="pill ${c.ok ? 'info' : 'alta'}">${c.ok ? 'Pasa' : 'Falla'}</span><strong>${esc(c.name)}</strong></div><p class="small">${esc(c.detail)}</p></li>`).join('')}</ul></div>
+      <p class="small muted" style="max-width:80ch">Un stop es una orden, no una garantía: en un hueco de apertura o un mercado rápido puede ejecutarse peor. Esta aplicación no envía órdenes; el stop y el objetivo tienes que ponerlos tú en tu bróker.</p>`;
+    }
+    const levels = TC.checkLevels(state.levels, p.positions);
+    return `
+    <section>
+      <h2>Mis reglas</h2>
+      <p class="lead">Se fijan una vez y se aplican a todo: al tamaño de cada operación, a los avisos del resumen y al colchón de efectivo. Limitan cuánto puedes perder; no hacen que una operación salga bien.</p>
+      <div class="form">
+        ${rule('rule-loss', 'Pérdida máxima por operación (€)', 'maxLoss', 5, 1000000)}
+        ${rule('rule-pos', 'Peso máximo por valor (%)', 'maxPositionPct', 1, 100)}
+        ${rule('rule-cash', 'Colchón de efectivo (%)', 'cashBufferPct', 1, 100)}
+        ${rule('rule-rr', 'Rentabilidad:riesgo mínima', 'minRR', 0.1, 20)}
+        ${rule('rule-fee', 'Comisión por orden (€)', 'fee', 0.5, 100)}
+      </div>
+    </section>
+    <section>
+      <h2>Tamaño de una operación</h2>
+      <p class="lead">Decide la salida antes de entrar: el stop es donde la idea ha fallado y el objetivo, donde recoges. Cuanto más lejos el stop, menos títulos. Solo compras, sin apalancamiento.</p>
+      <div class="form">
+        <label class="field">Valor (opcional)<input id="trade-name" type="text" list="trade-names" data-action="trade" data-key="name" value="${esc(t.name)}"></label>
+        <datalist id="trade-names">${p.positions.map((x) => `<option value="${esc(x.name)}"></option>`).join('')}</datalist>
+        ${tf('trade-entry', 'Precio de entrada (€)', 'entry')}${tf('trade-stop', 'Stop (€)', 'stop')}${tf('trade-target', 'Objetivo (€)', 'target')}
+      </div>
+      ${result}
+    </section>
+    <section>
+      <h2>Niveles vigilados</h2>
+      <p class="lead">Marca en cada posición el precio al que saldrías o recogerías beneficios. Se comparan con el precio que introduces en Posiciones, no con cotizaciones en directo, y los alcanzados aparecen en el Resumen.</p>
+      ${p.positions.length ? `<form class="form" id="level-form">
+        <label class="field">Posición<select id="level-key" name="key">${p.positions.map((x) => `<option value="${esc(x.key)}">${esc(x.name)}</option>`).join('')}</select></label>
+        <label class="field">Avisar si<select id="level-type" name="type"><option value="below">baja hasta</option><option value="above">sube hasta</option></select></label>
+        <label class="field">Precio (€)<input id="level-price" name="price" type="number" min="0" step="any" inputmode="decimal" required></label>
+        <button class="btn" type="submit">Vigilar</button>
+      </form>` : '<p class="muted">Necesitas al menos una posición.</p>'}
+      ${levels.length ? `<div class="panel table-scroll"><table>
+        <thead><tr><th>Posición</th><th>Condición</th><th>Nivel</th><th>Precio actual</th><th>Distancia</th><th>Estado</th><th></th></tr></thead>
+        <tbody>${levels.map((l) => `<tr><td>${esc(l.name)}</td><td>${l.type === 'below' ? 'Baja hasta' : 'Sube hasta'}</td><td>${eur(l.price)}</td><td>${l.current != null ? eur(l.current) : '—'}</td>
+          <td>${l.current ? sign((l.price - l.current) / l.current, pct) : '—'}</td>
+          <td><span class="pill ${l.hit ? 'alta' : 'info'}">${l.hit ? 'Alcanzado' : l.held ? 'Vigilando' : 'Sin posición'}</span></td>
+          <td><button class="btn link" data-action="level-del" data-id="${esc(l.id)}" aria-label="Quitar nivel de ${esc(l.name)}">Quitar</button></td></tr>`).join('')}</tbody></table></div>` : ''}
     </section>`;
   }
 
@@ -217,30 +305,45 @@
     return TC.projection({ initial: Math.max(0, m.total), monthly: j.monthly, years: j.years, annualReturn: j.ret / 100, annualCost: j.cost / 100, inflation: j.infl / 100 });
   }
 
+  let simCache = { key: '', value: null };
+  function simData(m) {
+    const j = state.proj;
+    const args = { initial: Math.max(0, m.total), monthly: j.monthly, years: j.years, annualReturn: j.ret / 100, annualCost: j.cost / 100, volatility: j.vol / 100, paths: 5000, seed: 19 };
+    const key = JSON.stringify(args);
+    if (simCache.key !== key) simCache = { key, value: TC.simulate(args) };
+    return simCache.value;
+  }
+
   function viewProyeccion(m) {
     const j = state.proj;
     const data = projData(m);
     const end = data[data.length - 1];
+    const sim = simData(m);
+    const send = sim.rows[sim.rows.length - 1];
+    const real = (v) => v / Math.pow(1 + j.infl / 100, j.years);
     const f = (id, label, key, step, min, max) => `<label class="field">${label}<input id="${id}" type="number" step="${step}" min="${min}" max="${max}" inputmode="decimal" data-action="proj" data-key="${key}" value="${j[key]}"></label>`;
     return `
     <section>
       <h2>Proyección a largo plazo</h2>
-      <p class="lead">Parte de tu valor actual (${eur0(Math.max(0, m.total))}). La rentabilidad es una hipótesis tuya, no una previsión: prueba también con cifras bajas.</p>
+      <p class="lead">Parte de tu valor actual (${eur0(Math.max(0, m.total))}) y repite el futuro ${fNum.format(sim.paths)} veces con la rentabilidad y la volatilidad que tú supongas. Es una simulación de tu hipótesis, no una previsión.</p>
       <div class="form">
         ${f('proj-monthly', 'Aportación mensual (€)', 'monthly', 50, 0, 100000)}
         ${f('proj-years', 'Años', 'years', 1, 1, 50)}
         ${f('proj-ret', 'Rentabilidad anual (%)', 'ret', 0.5, -10, 20)}
+        ${f('proj-vol', 'Volatilidad anual (%)', 'vol', 1, 0, 60)}
         ${f('proj-cost', 'Costes anuales, TER (%)', 'cost', 0.05, 0, 5)}
         ${f('proj-infl', 'Inflación (%)', 'infl', 0.5, 0, 15)}
       </div>
       <div class="kpis">
-        ${kpi(`Valor en ${j.years} años`, eur0(end.value), `${eur0(end.real)} en euros de hoy`)}
-        ${kpi('Total aportado', eur0(end.contributed), `${eur0(j.monthly * 12)} al año`)}
-        ${kpi('Generado por la inversión', sign(end.value - end.contributed, eur0), '', cls(end.value - end.contributed))}
+        ${kpi(`Resultado central en ${j.years} años`, eur0(send.p50), `${eur0(real(send.p50))} en euros de hoy`)}
+        ${kpi('Total aportado', eur0(send.contributed), `${eur0(j.monthly * 12)} al año`)}
+        ${kpi('Escenario malo', eur0(send.p10), '1 de cada 10 simulaciones acaba por debajo')}
+        ${kpi('Escenario bueno', eur0(send.p90), '1 de cada 10 simulaciones acaba por encima')}
+        ${kpi('Acabar con menos de lo aportado', pct(sim.probBelow), `${fNum.format(sim.paths)} simulaciones, semilla ${sim.seed}`)}
         ${kpi('Lo que se llevan los costes', eur0(end.noCost - end.value), `Con un ${String(j.cost).replace('.', ',')} % anual`)}
       </div>
       <div class="panel">
-        <div class="legend"><span><i class="swatch"></i>Valor proyectado</span><span><i class="swatch s2"></i>Total aportado</span></div>
+        <div class="legend"><span><i class="swatch"></i>Resultado central</span><span><i class="swatch band"></i>8 de cada 10 simulaciones</span><span><i class="swatch s2"></i>Total aportado</span></div>
         <div class="chart" id="proj-chart"></div>
       </div>
     </section>`;
@@ -333,10 +436,10 @@
   function drawProjection(m) {
     const el = $('#proj-chart');
     if (!el) return;
-    const data = projData(m);
+    const data = simData(m).rows;
     const W = Math.max(300, el.clientWidth || 640), H = Math.round(Math.min(320, Math.max(220, W * 0.42)));
     const mg = { l: 76, r: 14, t: 12, b: 26 };
-    const maxY = niceMax(Math.max(...data.map((d) => Math.max(d.value, d.contributed)), 1));
+    const maxY = niceMax(Math.max(...data.map((d) => Math.max(d.p90, d.contributed)), 1));
     const n = data.length - 1;
     const x = (i) => mg.l + (W - mg.l - mg.r) * (i / n);
     const y = (v) => H - mg.b - (H - mg.t - mg.b) * (Math.max(0, v) / maxY);
@@ -349,12 +452,12 @@
       g += `<line x1="${mg.l}" x2="${W - mg.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${mg.l - 8}" y="${y(v) + 4}" text-anchor="end">${fCompact.format(v)} €</text>`;
     }
     for (let i = 0; i <= n; i += stepX) g += `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === n ? 'end' : 'middle'}">${year0 + i}</text>`;
-    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución proyectada del valor de la cartera frente al total aportado">
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Simulación del valor de la cartera: resultado central, franja entre el escenario malo y el bueno, y total aportado">
       ${g}
-      <path d="${path('value')}L${x(n)},${y(0)}L${x(0)},${y(0)}Z" fill="var(--series-1)" opacity="0.1"/>
+      <path d="${path('p90')}${data.slice().reverse().map((d, k) => `L${x(n - k).toFixed(1)},${y(d.p10).toFixed(1)}`).join('')}Z" fill="var(--series-1)" opacity="0.16"/>
       <path d="${path('contributed')}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"/>
-      <path d="${path('value')}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"/>
-      <circle cx="${x(n)}" cy="${y(data[n].value)}" r="4" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2"/>
+      <path d="${path('p50')}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="${x(n)}" cy="${y(data[n].p50)}" r="4" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2"/>
       <g id="cross" visibility="hidden"><line id="cross-line" y1="${mg.t}" y2="${H - mg.b}" stroke="var(--ink-3)" stroke-width="1"/>
         <circle id="cross-a" r="4" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2"/><circle id="cross-b" r="4" fill="var(--series-2)" stroke="var(--surface)" stroke-width="2"/></g>
       <rect id="hit" x="${mg.l}" y="0" width="${W - mg.l - mg.r}" height="${H}" fill="transparent"/>
@@ -367,9 +470,9 @@
       const d = data[i];
       cross.setAttribute('visibility', 'visible');
       svg.querySelector('#cross-line').setAttribute('x1', x(i)); svg.querySelector('#cross-line').setAttribute('x2', x(i));
-      svg.querySelector('#cross-a').setAttribute('cx', x(i)); svg.querySelector('#cross-a').setAttribute('cy', y(d.value));
+      svg.querySelector('#cross-a').setAttribute('cx', x(i)); svg.querySelector('#cross-a').setAttribute('cy', y(d.p50));
       svg.querySelector('#cross-b').setAttribute('cx', x(i)); svg.querySelector('#cross-b').setAttribute('cy', y(d.contributed));
-      showTip(`<strong>${year0 + i}</strong><br>Valor proyectado: ${eur0(d.value)}<br>Total aportado: ${eur0(d.contributed)}`, ev.clientX, ev.clientY);
+      showTip(`<strong>${year0 + i}</strong><br>Escenario bueno: ${eur0(d.p90)}<br>Resultado central: ${eur0(d.p50)}<br>Escenario malo: ${eur0(d.p10)}<br>Total aportado: ${eur0(d.contributed)}`, ev.clientX, ev.clientY);
     };
     svg.addEventListener('pointermove', move);
     svg.addEventListener('pointerdown', move);
@@ -406,7 +509,7 @@
     $('#banner').innerHTML = state.isDemo
       ? `<div class="banner"><span><strong>Cartera de ejemplo.</strong> Valores, precios y movimientos son inventados para mostrar cómo funciona.</span><a class="btn" href="#datos">Importar mis movimientos</a></div>`
       : (m.portfolio.cash < -1 && state.cashOverride == null && state.transactions.length ? `<div class="banner"><span>El efectivo calculado sale negativo (${eur(m.portfolio.cash)}): faltan ingresos en los movimientos. Indica tu saldo real en <a href="#posiciones">Posiciones</a>.</span></div>` : '');
-    const fn = { resumen: viewResumen, posiciones: viewPosiciones, rebalanceo: viewRebalanceo, fiscalidad: viewFiscalidad, proyeccion: viewProyeccion, datos: viewDatos }[view];
+    const fn = { resumen: viewResumen, posiciones: viewPosiciones, rebalanceo: viewRebalanceo, operacion: viewOperacion, fiscalidad: viewFiscalidad, proyeccion: viewProyeccion, datos: viewDatos }[view];
     $('#view').innerHTML = fn(m);
     if (view === 'proyeccion') drawProjection(m);
   }
@@ -420,7 +523,7 @@
       try {
         const data = JSON.parse(trimmed);
         if (!Array.isArray(data.transactions)) throw new Error('formato');
-        state = Object.assign(defaults(), data, { isDemo: false });
+        state = Object.assign(hydrate(data), { isDemo: false });
         save();
         ui.notice = `Copia restaurada: ${state.transactions.length} movimientos.`;
       } catch (e) { ui.notice = 'Ese texto no es una copia de seguridad válida de esta aplicación.'; }
@@ -445,10 +548,23 @@
       case 'cash': state.cashOverride = val == null || !Number.isFinite(val) ? null : val; break;
       case 'contribution': state.contribution = Math.max(0, val || 0); break;
       case 'proj': {
-        const lim = { monthly: [0, 1e6], years: [1, 50], ret: [-10, 20], cost: [0, 5], infl: [0, 15] }[key];
+        const lim = { monthly: [0, 1e6], years: [1, 50], ret: [-10, 20], vol: [0, 60], cost: [0, 5], infl: [0, 15] }[key];
         state.proj[key] = Math.max(lim[0], Math.min(lim[1], val == null || !Number.isFinite(val) ? 0 : val));
         if (key === 'years') state.proj.years = Math.round(state.proj.years);
         break;
+      }
+      case 'rule': {
+        const lim = { maxLoss: [0, 1e6], maxPositionPct: [1, 100], cashBufferPct: [0, 100], minRR: [0, 20], fee: [0, 100] }[key];
+        state.rules[key] = Math.max(lim[0], Math.min(lim[1], val == null || !Number.isFinite(val) ? 0 : val));
+        break;
+      }
+      case 'trade': state.trade[key] = key === 'name' ? el.value : (val > 0 ? val : null); break;
+      case 'level-del': state.levels = state.levels.filter((l) => l.id !== el.dataset.id); break;
+      case 'copy': {
+        const ta = document.getElementById(el.dataset.target);
+        const fallback = () => { ta.focus(); ta.select(); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(() => { el.textContent = 'Copiado'; }, fallback); else fallback();
+        return;
       }
       case 'tax-year': ui.taxYear = Number(el.value); break;
       case 'map': ui.pending.mapping[el.dataset.field] = Number(el.value); break;
@@ -508,6 +624,15 @@
     if (el) act(el.dataset.action, el);
   });
   document.addEventListener('submit', (ev) => {
+    if (ev.target.id === 'level-form') {
+      ev.preventDefault();
+      const f = Object.fromEntries(new FormData(ev.target).entries());
+      const price = Number(f.price);
+      if (!(price > 0)) return;
+      state.levels.push({ id: 'lvl-' + Date.now(), key: f.key, type: f.type, price });
+      save();
+      return render();
+    }
     if (ev.target.id !== 'manual') return;
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target).entries());

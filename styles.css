@@ -111,6 +111,7 @@ a.btn { text-decoration: none; display: inline-block; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--series-1); }
 .swatch.s2 { background: var(--series-2); }
+.swatch.band { opacity: 0.3; }
 .swatch.tick { width: 2px; height: 14px; border-radius: 0; background: var(--ink); }
 @media (max-width: 520px) { .bar-row { grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) 3.4rem; } }
 
