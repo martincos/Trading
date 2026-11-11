@@ -1,2 +1,6 @@
 node_modules/
 .DS_Store
+__pycache__/
+# datos personales de la Mesa de Operaciones y su demostración
+trader/
+.mesa/

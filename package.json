@@ -2,9 +2,11 @@
   "name": "brujula-de-cartera",
   "version": "1.0.0",
   "private": true,
-  "description": "Panel local para analizar una cartera de bróker a partir de su exportación CSV",
+  "description": "Brújula de Cartera (panel de cartera a partir de un CSV) y Mesa de Operaciones (interfaz local para day-trader-skill)",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test && python3 -m unittest discover -s tests -p \"test_*.py\"",
+    "mesa": "python3 mesa/server.py",
+    "mesa:demo": "python3 mesa/server.py --demo",
     "build": "node scripts/build-single.js"
   }
 }

@@ -1,3 +1,84 @@
+# Trading
+
+Dos aplicaciones locales en este repositorio:
+
+- **Mesa de Operaciones** (`mesa/`): una interfaz para los 11 skills de day-trader-skill. Recorre una operación
+  intradía de principio a fin ejecutando los scripts reales de cada skill.
+- **Brújula de Cartera** (raíz): panel para analizar una cartera a largo plazo a partir del CSV de movimientos.
+
+Ninguna de las dos se conecta a un bróker ni envía órdenes. Son herramientas educativas, no asesoramiento
+financiero. La mayoría de quienes hacen day trading pierden dinero.
+
+# Mesa de Operaciones
+
+```
+python3 mesa/server.py --demo    # para probarla: mercado inventado, sin conexión
+python3 mesa/server.py           # con datos de verdad
+```
+
+Se abre en `http://127.0.0.1:8765`. Solo necesita Python 3.9 o posterior, sin instalar nada más.
+
+## Qué hace
+
+Cada pantalla es un skill de `.claude/skills/`. La aplicación no reimplementa su lógica: cada botón lanza el
+script del skill con los mismos argumentos que usaría Claude, lee su salida y la enseña. Los skills se pasan el
+trabajo unos a otros por los ficheros de `trader/`, igual que cuando se usan desde Claude, así que se puede
+empezar un paso aquí y seguirlo en Claude, o al revés.
+
+| Paso | Skill | Qué se ve |
+|---|---|---|
+| Hoy | (todos) | Reloj de la bolsa, operaciones y riesgo consumidos del día, posiciones y qué paso toca |
+| 1. Escáner | trader-scanner | Escaneo diario (máximo de 20 días, bandera, media de 20, sobreventa) y rupturas del rango de apertura |
+| 2. Noticias | trader-news | Titulares y 8-K nuevos por valor, y cuánto se mueve cada uno frente al cierre anterior |
+| Analista | trader-analyst | Ingresos, márgenes, beneficio y BPA por trimestre, tal como se presentaron a la SEC |
+| Congreso | trader-pelosi | Declaraciones de operaciones de la Cámara de Representantes, leídas fila a fila |
+| 3. Entrada | trader-entry | Si una vela ha cerrado por encima del nivel, con el gráfico de velas; vigilancia vela a vela |
+| 4. Salida | trader-exit | Stop, objetivo, riesgo por título y hora de salida, dibujados sobre el gráfico |
+| 5. Máquina del tiempo | trader-timemachine | 10.000 repeticiones: reparto objetivo / stop / ninguno, abanico de precios, histograma e historial real |
+| 6. Presupuesto | trader-budget | Cuántos títulos caben en cada límite y cuál decide; reparto por pesos |
+| 7. Riesgo | trader-risk | PASA o BLOQUEADA, con el motivo, para cada orden propuesta |
+| 8. Bróker | trader-broker | El ticket, tu respuesta escrita, el JSON exacto para Alpaca, la venta de cierre y el registro |
+| 9. Alertas | trader-alerts | Stop, objetivo, hora de salida, movimientos y campana de apertura; cotizaciones |
+| Mis reglas | `trader/config.json` | Presupuesto, límites de pérdida, horario y lista de valores vetados |
+
+## Modo demostración
+
+Genera un mercado inventado (12 empresas que no existen, una sesión completa y 60 días de historial) con el mismo
+formato que devuelven Yahoo, la SEC y la Cámara, y se lo da a los skills con su opción `--offline`. Con el reloj
+de la cabecera se avanza la sesión: a las 9:00 funciona el escaneo diario, a las 10:15 saltan las primeras
+rupturas, a las 12:30 un valor toca su objetivo y a las 15:55 suena la alerta de salida. Sus datos van aparte,
+en `.mesa/demo/`, y no tocan los tuyos.
+
+## Lo que no hace
+
+- **No envía órdenes.** El skill exige tres puertas para que una orden llegue al mercado: que el control de riesgo
+  la haya pasado hoy, tu sí escrito para esa orden y tu «Permitir una vez» en la tarjeta de Claude. La aplicación
+  cubre las dos primeras. Después puedes simular la ejecución en local (cuenta de papel, no sale nada del
+  ordenador) o colocar la orden desde Claude con `/trader-broker` y apuntar aquí el resultado.
+- **No cambia a cuenta real** ni activa opciones, margen o ventas en corto: eso se edita a mano en
+  `trader/config.json`.
+- **No da precios en tiempo real.** Usa las fuentes gratuitas de los skills (Yahoo, no oficial y con retraso).
+  El stop que protege una posición es la orden que está en el bróker, no una alerta de esta página.
+- Los mensajes de los skills (motivos de un bloqueo, veredicto de la simulación) se muestran tal cual, en inglés.
+
+## Datos y privacidad
+
+El servidor escucha solo en `127.0.0.1` y rechaza peticiones que no vengan de la propia página. Tus datos están en
+`trader/` (fuera del control de versiones). En modo real los skills hacen peticiones a Yahoo Finance,
+nasdaqtrader.com, sec.gov y disclosures-clerk.house.gov. La SEC exige identificarse con nombre y correo: se
+escribe en «Mis reglas» y solo se envía a sec.gov.
+
+## Estado de las pruebas
+
+`npm test` ejecuta un día completo con los 11 skills sobre el mercado inventado. Las conexiones reales a Yahoo,
+la SEC y la Cámara no se han podido probar en el entorno donde se escribió la aplicación (sin salida a esos
+servidores); si alguna falla, el mensaje del skill aparece en «Salida del skill».
+
+- `mesa/server.py`: servidor, lista cerrada de acciones y validación de cada argumento
+- `mesa/demo.py`: generador del mercado inventado
+- `mesa/web/`: interfaz (`app.js`) y gráficos (`charts.js`)
+- `tests/test_mesa.py`: pruebas
+
 # Brújula de Cartera
 
 Panel local para analizar una cuenta de bróker (pensado para Trade Republic) a partir de su exportación de
@@ -52,7 +133,7 @@ separadores `,` `;` o tabulador y decimales con coma o punto. Las columnas se pu
 ## Desarrollo
 
 ```
-npm test        # pruebas del motor (node --test, sin dependencias)
+npm test        # pruebas de las dos aplicaciones (node --test y unittest, sin dependencias)
 npm run build   # regenera dist/brujula-cartera.html
 ```
 
@@ -67,5 +148,5 @@ Las skills de `.claude/skills/` (Jakeschincariol/day-trader-skill, MIT) inspiran
 a una cartera a largo plazo: el tamaño de la operación limitado por la pérdida máxima (trader-budget, trader-exit),
 las comprobaciones «pasa / falla» contra reglas propias (trader-risk), los niveles vigilados (trader-alerts), la
 simulación repetible con semilla (trader-timemachine) y las órdenes escritas en claro que solo el usuario ejecuta
-(trader-broker). El escáner, las noticias y los datos de la SEC necesitan conexión a servicios externos y siguen
-disponibles solo como skills.
+(trader-broker). El escáner, las noticias y los datos de la SEC necesitan conexión a servicios externos: están en la Mesa de
+Operaciones, que ejecuta los skills completos.
