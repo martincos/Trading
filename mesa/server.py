@@ -694,6 +694,7 @@ class App(object):
         self.ctx = Context(workspace, mode, clock)
         self.jobs = Jobs()
         self.token = secrets.token_urlsafe(24)
+        self.any_host = False
         self.created_config = self.ctx.prepare()
 
     # ---- lectura
@@ -853,6 +854,8 @@ def make_handler(app):
 
         def _local(self):
             """Solo se atiende a este ordenador: rechaza otros nombres de host (DNS rebinding)."""
+            if app.any_host:
+                return True
             host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
             return host in ("127.0.0.1", "localhost", "::1")
 
@@ -920,8 +923,12 @@ def main(argv=None):
     ap.add_argument("--workspace", default=REPO, help="carpeta donde vive trader/ (por defecto, este repositorio)")
     ap.add_argument("--demo", action="store_true", help="arranca en modo demostración, con datos inventados")
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--preview", action="store_true",
+                    help="acepta cualquier nombre de host, para verla a través de una vista previa remota; "
+                         "las escrituras siguen exigiendo la clave de la página")
     a = ap.parse_args(argv)
     app = App(a.workspace, "demo" if a.demo else "real", "09:00" if a.demo else "10:15")
+    app.any_host = a.preview
     httpd = ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(app))
     url = "http://127.0.0.1:%d/" % a.port
     print("Mesa de Operaciones en %s (Ctrl+C para salir)" % url)
